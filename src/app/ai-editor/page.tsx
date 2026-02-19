@@ -2,10 +2,10 @@
 
 import React, { useState } from 'react'
 import { Panel, Group, Separator } from 'react-resizable-panels'
-import dynamic from 'next/dynamic'
+import dynamicImport from 'next/dynamic'
 
-const DocumentEditor = dynamic(() => import('@/components/DocumentEditor'), { ssr: false })
-const AIChat = dynamic(() => import('@/components/AIChat'), { ssr: false })
+const DocumentEditor = dynamicImport(() => import('@/components/DocumentEditor'), { ssr: false })
+const AIChat = dynamicImport(() => import('@/components/AIChat'), { ssr: false })
 
 export const dynamic = 'force-dynamic'
 
