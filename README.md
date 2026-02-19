@@ -2,8 +2,8 @@
 
 A smart, AI-powered document editor that understands context, line numbers, and multimodal inputs. Built with Next.js, Supabase, and Google Gemini.
 
-🔗 **Live Demo:** [Vercel Deployment URL Here]  
-📂 **Repo:** [GitHub Repository URL Here]
+🔗 **Live Demo:** [https://ai-doc-editor-gemini.vercel.app](https://ai-doc-editor-gemini.vercel.app)  
+📂 **Repo:** [https://github.com/FiqriAgustriawan/document-ai-switch](https://github.com/FiqriAgustriawan/document-ai-switch)
 
 ## 🌟 Key Features
 
