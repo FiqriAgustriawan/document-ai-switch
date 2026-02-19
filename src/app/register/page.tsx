@@ -8,7 +8,7 @@ import { Loader2, Mail, Lock, ArrowRight, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { GalaxyBackground } from '@/components/ui/GalaxyBackground'
 
-export const dynamic = 'force-dynamic'
+
 
 export default function RegisterPage() {
   const router = useRouter()
