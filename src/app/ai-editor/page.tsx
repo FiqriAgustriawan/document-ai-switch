@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react'
 import { Panel, Group, Separator } from 'react-resizable-panels'
-import DocumentEditor from '@/components/DocumentEditor'
-import AIChat from '@/components/AIChat'
+import dynamic from 'next/dynamic'
+
+const DocumentEditor = dynamic(() => import('@/components/DocumentEditor'), { ssr: false })
+const AIChat = dynamic(() => import('@/components/AIChat'), { ssr: false })
 
 export default function AIEditorPage() {
   // In a real app, this might come from params or a fetching hook
@@ -14,6 +16,14 @@ export default function AIEditorPage() {
   // State for sharing content between Editor and Chat
   const [contentForChat, setContentForChat] = useState('')
   const [aiUpdatedContent, setAiUpdatedContent] = useState<string | null>(null)
+
+  // Hydration fix
+  const [mounted, setMounted] = useState(false)
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) return null
 
   return (
     <div className="h-screen w-full bg-gray-100 overflow-hidden flex flex-col">
