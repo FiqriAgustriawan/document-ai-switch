@@ -7,6 +7,8 @@ import dynamic from 'next/dynamic'
 const DocumentEditor = dynamic(() => import('@/components/DocumentEditor'), { ssr: false })
 const AIChat = dynamic(() => import('@/components/AIChat'), { ssr: false })
 
+export const dynamic = 'force-dynamic'
+
 export default function AIEditorPage() {
   // In a real app, this might come from params or a fetching hook
   // For demo, we use a fixed ID and user
