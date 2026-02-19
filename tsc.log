@@ -1,0 +1,15 @@
+src/app/api/chat/route.ts(69,7): error TS2353: Object literal may only specify known properties, and 'tools' does not exist in type 'GenerateContentParameters'.
+src/app/api/chat/route.ts(122,13): error TS2353: Object literal may only specify known properties, and 'role' does not exist in type 'Part'.
+src/app/api/chat/route.ts(124,13): error TS2353: Object literal may only specify known properties, and 'role' does not exist in type 'Part'.
+src/components/AIChat.tsx(139,58): error TS2322: Type '{ ref?: Ref<HTMLPreElement> | undefined; key?: Key | null | undefined; defaultChecked?: boolean | undefined; defaultValue?: string | number | readonly string[] | undefined; ... 276 more ...; onTransitionStartCapture?: TransitionEventHandler<...> | undefined; }' is not assignable to type 'DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>'.
+  Type '{ ref?: Ref<HTMLPreElement> | undefined; key?: Key | null | undefined; defaultChecked?: boolean | undefined; defaultValue?: string | number | readonly string[] | undefined; ... 276 more ...; onTransitionStartCapture?: TransitionEventHandler<...> | undefined; }' is not assignable to type 'ClassAttributes<HTMLDivElement>'.
+    Types of property 'ref' are incompatible.
+      Type 'Ref<HTMLPreElement> | undefined' is not assignable to type 'Ref<HTMLDivElement> | undefined'.
+        Type '(instance: HTMLPreElement | null) => void | (() => VoidOrUndefinedOnly)' is not assignable to type 'Ref<HTMLDivElement> | undefined'.
+          Type '(instance: HTMLPreElement | null) => void | (() => VoidOrUndefinedOnly)' is not assignable to type '(instance: HTMLDivElement | null) => void | (() => VoidOrUndefinedOnly)'.
+            Types of parameters 'instance' and 'instance' are incompatible.
+              Type 'HTMLDivElement | null' is not assignable to type 'HTMLPreElement | null'.
+                Property 'width' is missing in type 'HTMLDivElement' but required in type 'HTMLPreElement'.
+src/hooks/useRealtimeDocument.ts(3,48): error TS2307: Cannot find module '@supabase/supabase-js' or its corresponding type declarations.
+src/hooks/useRealtimeDocument.ts(44,19): error TS7006: Parameter 'status' implicitly has an 'any' type.
+src/lib/supabase.ts(1,30): error TS2307: Cannot find module '@supabase/supabase-js' or its corresponding type declarations.

@@ -1,0 +1,66 @@
+
+> ai-doc-editor@0.1.0 lint
+> eslint
+
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\app\api\chat\route.ts
+   52:38  error    Unexpected any. Specify a different type                  @typescript-eslint/no-explicit-any
+   58:11  warning  'chat' is assigned a value but never used                 @typescript-eslint/no-unused-vars
+   72:11  warning  'lastMessage' is assigned a value but never used          @typescript-eslint/no-unused-vars
+   93:9   error    'functionCalls' is never reassigned. Use 'const' instead  prefer-const
+   96:9   error    'toolResults' is never reassigned. Use 'const' instead    prefer-const
+  151:19  error    Unexpected any. Specify a different type                  @typescript-eslint/no-explicit-any
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\components\AIChat.tsx
+    6:21  warning  'User' is defined but never used  @typescript-eslint/no-unused-vars
+  138:27  warning  'node' is defined but never used  @typescript-eslint/no-unused-vars
+  139:29  warning  'node' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\components\DocumentEditor.tsx
+   4:10  warning  'supabase' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   7:32  warning  'AlertCircle' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @typescript-eslint/no-unused-vars
+   8:10  warning  'cn' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+  55:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\components\DocumentEditor.tsx:55:7
+  53 |   useEffect(() => {
+  54 |     if (externalContent !== undefined && externalContent !== null && externalContent !== content) {
+> 55 |       setContent(externalContent)
+     |       ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  56 |       // We don't call onContentUpdate here recursively to avoid loops, 
+  57 |       // but strictly speaking the parent already knows this content (it sent it).
+  58 |     }  react-hooks/set-state-in-effect
+  59:6   warning  React Hook useEffect has a missing dependency: 'content'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           react-hooks/exhaustive-deps
+  64:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\components\DocumentEditor.tsx:64:5
+  62 |   useEffect(() => {
+  63 |     const lines = content.split('\n').length
+> 64 |     setLineCount(lines)
+     |     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  65 |   }, [content])
+  66 |
+  67 |   // Sync Scroll Logic                                                                                                                                                                                              react-hooks/set-state-in-effect
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\hooks\useRealtimeDocument.ts
+  18:51  warning  'initialContent' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\lib\execute-function.ts
+   12:9   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  105:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Γ£û 18 problems (8 errors, 10 warnings)
+  2 errors and 0 warnings potentially fixable with the `--fix` option.
+

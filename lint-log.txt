@@ -1,0 +1,67 @@
+
+> ai-doc-editor@0.1.0 lint
+> eslint
+
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\scripts\list-models.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\scripts\test-chat.js
+  57:14  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\scripts\test-imports.js
+  2:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  9:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\scripts\verify-gemini.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\app\api\chat\route.ts
+   15:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   15:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   25:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   64:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   82:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  198:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\app\login\page.tsx
+    7:43  warning  'Github' is defined but never used                               @typescript-eslint/no-unused-vars
+   33:19  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  121:16  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\app\page.tsx
+  45:21  warning  'error' is assigned a value but never used                                                                            @typescript-eslint/no-unused-vars
+  64:6   warning  React Hook useEffect has a missing dependency: 'handleNewDocument'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\app\register\page.tsx
+  35:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\components\AIChat.tsx
+  160:35  warning  '_node' is defined but never used         @typescript-eslint/no-unused-vars
+  161:35  warning  '_node' is defined but never used         @typescript-eslint/no-unused-vars
+  162:38  warning  '_node' is defined but never used         @typescript-eslint/no-unused-vars
+  170:37  warning  '_node' is defined but never used         @typescript-eslint/no-unused-vars
+  172:76  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\components\DocumentEditor.tsx
+   84:44  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   84:81  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   92:38  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  207:14  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\components\DocumentSidebar.tsx
+   3:20  warning  'useEffect' is defined but never used        @typescript-eslint/no-unused-vars
+   4:18  warning  'AnimatePresence' is defined but never used  @typescript-eslint/no-unused-vars
+  27:3   warning  'userId' is defined but never used           @typescript-eslint/no-unused-vars
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\lib\execute-function.ts
+   3:9   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  92:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\lib\function-tools.ts
+  4:31  warning  'Schema' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 34 problems (21 errors, 13 warnings)
+

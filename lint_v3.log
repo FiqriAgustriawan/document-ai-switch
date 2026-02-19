@@ -1,0 +1,20 @@
+
+> ai-doc-editor@0.1.0 lint
+> eslint
+
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\app\api\chat\route.ts
+  20:11  warning  'model' is assigned a value but never used                                                            @typescript-eslint/no-unused-vars
+  62:11  warning  'lastMessage' is assigned a value but never used                                                      @typescript-eslint/no-unused-vars
+  87:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\components\AIChat.tsx
+  138:33  warning  '_node' is defined but never used  @typescript-eslint/no-unused-vars
+  139:35  warning  '_node' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\hooks\useRealtimeDocument.ts
+  18:51  warning  'initialContent' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 6 problems (0 errors, 6 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+

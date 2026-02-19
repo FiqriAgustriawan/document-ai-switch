@@ -1,0 +1,29 @@
+
+> ai-doc-editor@0.1.0 lint
+> eslint
+
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\app\api\chat\route.ts
+   58:11  warning  'chat' is assigned a value but never used                 @typescript-eslint/no-unused-vars
+   72:11  warning  'lastMessage' is assigned a value but never used          @typescript-eslint/no-unused-vars
+   90:9   error    'result' is never reassigned. Use 'const' instead         prefer-const
+   93:9   error    'functionCalls' is never reassigned. Use 'const' instead  prefer-const
+  151:19  error    Unexpected any. Specify a different type                  @typescript-eslint/no-explicit-any
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\components\AIChat.tsx
+    6:21  warning  'User' is defined but never used  @typescript-eslint/no-unused-vars
+  138:27  warning  'node' is defined but never used  @typescript-eslint/no-unused-vars
+  139:29  warning  'node' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\components\DocumentEditor.tsx
+  7:10  warning  'cn' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\hooks\useRealtimeDocument.ts
+  18:51  warning  'initialContent' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\PKL DOCS\pkltask\ai-doc-editor-gemini\src\lib\execute-function.ts
+  12:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Γ£û 11 problems (4 errors, 7 warnings)
+  2 errors and 0 warnings potentially fixable with the `--fix` option.
+
