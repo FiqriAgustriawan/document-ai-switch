@@ -20,6 +20,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     setMounted(true)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        router.push('/dashboard')
+      }
+    })
   }, [])
 
   if (!mounted) return null
@@ -37,7 +42,7 @@ export default function LoginPage() {
 
       if (error) throw error
 
-      router.push('/')
+      router.push('/dashboard')
       router.refresh()
     } catch (err: any) {
       setError(err.message)
@@ -53,7 +58,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}`
+          redirectTo: `${window.location.origin}/dashboard`
         }
       })
       if (error) throw error

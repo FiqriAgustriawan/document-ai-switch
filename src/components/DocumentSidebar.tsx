@@ -75,7 +75,18 @@ export function DocumentSidebar({
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2 min-w-[280px]">
           <button
-            onClick={onNewDocument}
+            onClick={() => router.push('/dashboard')}
+            className="w-full flex items-center gap-2 p-3 rounded-xl bg-gradient-to-r from-zinc-800 to-zinc-900 border border-white/5 text-zinc-400 hover:text-white transition-all group mb-4"
+          >
+            <LayoutPanelLeft className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            <span className="text-sm font-medium">Dashboard</span>
+          </button>
+
+          <button
+            onClick={() => {
+              const newId = crypto.randomUUID()
+              router.push(`/editor/${newId}`)
+            }}
             className="w-full flex items-center gap-2 p-3 rounded-xl bg-gradient-to-r from-cyan-600/20 to-blue-600/20 border border-cyan-500/20 text-cyan-100 hover:from-cyan-600/30 hover:to-blue-600/30 transition-all group"
           >
             <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
@@ -91,7 +102,7 @@ export function DocumentSidebar({
                   "group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors",
                   currentDocId === doc.id ? "bg-white/10 text-white" : "hover:bg-white/5 text-zinc-400 hover:text-zinc-200"
                 )}
-                onClick={() => onSelectDocument(doc.id)}
+                onClick={() => router.push(`/editor/${doc.id}`)}
               >
                 <div className="flex items-center gap-3 overflow-hidden">
                   <FileText className="w-4 h-4 flex-shrink-0" />

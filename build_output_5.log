@@ -1,0 +1,28 @@
+
+> ai-doc-editor@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 3.8s
+  Running TypeScript ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/3) ...
+Γ£ô Generating static pages using 11 workers (3/3) in 480.1ms
+  Finalizing page optimization ...
+
+Route (app)
+Γöî ╞Æ /
+Γö£ ╞Æ /_not-found
+Γö£ ╞Æ /ai-editor
+Γö£ ╞Æ /api/chat
+Γö£ ╞Æ /dashboard
+Γö£ ╞Æ /editor/[id]
+Γö£ ╞Æ /login
+Γöö ╞Æ /register
+
+
+╞Æ  (Dynamic)  server-rendered on demand
+

@@ -1,0 +1,24 @@
+
+> ai-doc-editor@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 3.6s
+  Running TypeScript ...
+Failed to compile.
+
+./src/app/dashboard/page.tsx:173:25
+Type error: Type '{ children: (false | Element)[]; yOffset: number; }' is not assignable to type 'IntrinsicAttributes & SmoothRevealProps'.
+  Property 'yOffset' does not exist on type 'IntrinsicAttributes & SmoothRevealProps'.
+
+  171 |         {/* Dashboard Grid */}
+  172 |         <div className="flex-1 overflow-y-auto p-8">
+> 173 |           <SmoothReveal yOffset={20}>
+      |                         ^
+  174 |             {activeTab === 'projects' && (
+  175 |               <div className="mb-8">
+  176 |                 <div className="flex items-center justify-between mb-4">
+Next.js build worker exited with code: 1 and signal: null

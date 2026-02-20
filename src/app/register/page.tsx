@@ -20,6 +20,11 @@ export default function RegisterPage() {
 
   useEffect(() => {
     setMounted(true)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        router.push('/dashboard')
+      }
+    })
   }, [])
 
   if (!mounted) return null
@@ -39,7 +44,7 @@ export default function RegisterPage() {
 
       // Auto login or redirect to login (Supabase default usually requires email confirmation, but for dev we might be ok)
       // Checks for success
-      router.push('/')
+      router.push('/dashboard')
       router.refresh()
     } catch (err: any) {
       setError(err.message)
@@ -55,7 +60,7 @@ export default function RegisterPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}`
+          redirectTo: `${window.location.origin}/dashboard`
         }
       })
       if (error) throw error

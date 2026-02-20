@@ -1,0 +1,23 @@
+
+> ai-doc-editor@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 5.1s
+  Running TypeScript ...
+Failed to compile.
+
+./src/app/dashboard/page.tsx:83:58
+Type error: Expected 2 arguments, but got 3.
+
+  81 |       const folderId = targetId.replace('folder-', '');
+  82 |       // Move doc to folder
+> 83 |       await moveDocument(draggableId, selectedWorkspace, folderId);
+     |                                                          ^
+  84 |     } else if (targetId.startsWith('workspace-')) {
+  85 |       const workspaceId = targetId.replace('workspace-', '');
+  86 |       // Move doc to workspace root
+Next.js build worker exited with code: 1 and signal: null
