@@ -169,7 +169,7 @@ export default function AIChat({ documentContent, onApplyChanges }: AIChatProps)
                       },
                       pre: ({ node: _node, ...props }) => (
                         <div className="overflow-x-auto my-3 rounded-lg border border-white/10 bg-black/30 p-3 custom-scrollbar">
-                          <pre className="text-xs font-mono" {...(props as any)} />
+                          <pre className="text-xs font-mono" {...(props as React.HTMLAttributes<HTMLPreElement>)} />
                         </div>
                       )
                     }}

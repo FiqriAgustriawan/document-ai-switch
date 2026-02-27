@@ -32,6 +32,7 @@ export function useWorkspaces(userId: string | undefined) {
   const [folders, setFolders] = useState<Folder[]>([])
   const [documents, setDocuments] = useState<DocumentItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isOperating, setIsOperating] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!userId) {
@@ -97,8 +98,9 @@ export function useWorkspaces(userId: string | undefined) {
       })
 
       setDocuments(parsedDocs)
-    } catch (err: any) {
-      console.error("Error fetching workspace data:", err)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      console.error("Error fetching workspace data:", message)
     } finally {
       setIsLoading(false)
     }
@@ -110,12 +112,17 @@ export function useWorkspaces(userId: string | undefined) {
 
   const createWorkspace = async (name: string) => {
     if (!userId) return null
-    const { data, error } = await supabase.from('workspaces').insert([{ user_id: userId, name }]).select().single()
-    if (!error && data) {
-      setWorkspaces(prev => [...prev, data])
-      return data
+    setIsOperating(true)
+    try {
+      const { data, error } = await supabase.from('workspaces').insert([{ user_id: userId, name }]).select().single()
+      if (!error && data) {
+        setWorkspaces(prev => [...prev, data])
+        return data
+      }
+      return null
+    } finally {
+      setIsOperating(false)
     }
-    return null
   }
 
   const createFolder = async (name: string, workspaceId: string) => {
@@ -156,7 +163,14 @@ export function useWorkspaces(userId: string | undefined) {
   const createDocument = async (name: string, content: string, workspaceId?: string | null, folderId?: string | null) => {
     if (!userId) return null
     const newDocId = crypto.randomUUID()
-    const docData: any = {
+    const docData: {
+      id: string
+      user_id: string
+      content: string
+      updated_at: string
+      workspace_id?: string | null
+      folder_id?: string | null
+    } = {
       id: newDocId,
       user_id: userId,
       content,
@@ -166,7 +180,7 @@ export function useWorkspaces(userId: string | undefined) {
     if (folderId) docData.folder_id = folderId
 
     // Optimistic update
-    setDocuments(prev => [{ ...docData as DocumentItem, name, is_trashed: false }, ...prev])
+    setDocuments(prev => [{ ...docData, name, is_trashed: false }, ...prev])
 
     const { error } = await supabase.from('documents').insert([docData])
     if (error) {
@@ -182,6 +196,7 @@ export function useWorkspaces(userId: string | undefined) {
     folders,
     documents,
     isLoading,
+    isOperating,
     refresh: fetchData,
     createWorkspace,
     deleteWorkspace,

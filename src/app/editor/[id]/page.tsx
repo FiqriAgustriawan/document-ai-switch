@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, use, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { GalaxyBackground } from "@/components/ui/GalaxyBackground"
 import { SmoothReveal } from "@/components/ui/SmoothReveal"
@@ -8,16 +8,17 @@ import DocumentEditor from "@/components/DocumentEditor"
 import AIChat from "@/components/AIChat"
 import { DocumentSidebar } from "@/components/DocumentSidebar"
 import { supabase } from '@/lib/supabase'
-import { v4 as uuidv4 } from 'uuid'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Share2 } from 'lucide-react'
 import { User } from '@supabase/supabase-js'
 import { cn } from '@/lib/utils'
-import { ConfirmationModal } from '@/components/ui/ConfirmationModal'
+import { ShareDialog } from '@/components/ShareDialog'
+import type { DocumentSummary } from '@/lib/documents'
 
-interface Document {
+interface DocumentData {
   id: string
   user_id: string
-  content?: string
+  title: string
+  content: string
   updated_at: string
 }
 
@@ -29,19 +30,17 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
 
   // Document State
   const [currentDocId, setCurrentDocId] = useState<string>('')
+  const [currentTitle, setCurrentTitle] = useState<string>('Untitled')
   const [documentContent, setDocumentContent] = useState<string>('')
-  const [documents, setDocuments] = useState<Document[]>([])
 
   // Layout State
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isMaximized, setIsMaximized] = useState(false)
 
-  // Delete Modal State
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [docToDelete, setDocToDelete] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
+  // Share Dialog State
+  const [isShareOpen, setIsShareOpen] = useState(false)
 
-  // 1. Check Auth & Load Documents
+  // 1. Check Auth & Load Document
   useEffect(() => {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession()
@@ -53,29 +52,44 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
 
       setUser(session.user)
 
-      // Fetch ALL documents for sidebar
-      const { data: allDocs, error } = await supabase
+      // Fetch the specific document from URL
+      const { data: doc, error } = await supabase
         .from('documents')
         .select('*')
-        .eq('user_id', session.user.id)
-        .order('updated_at', { ascending: false })
+        .eq('id', id)
+        .single()
 
-      if (allDocs) {
-        setDocuments(allDocs)
-
-        // Find the specific document requested in the URL
-        const requestedDoc = allDocs.find(d => d.id === id)
-
-        if (requestedDoc) {
-          setCurrentDocId(requestedDoc.id)
-          setDocumentContent(requestedDoc.content || '')
-        } else {
-          // If not found in their list, it might be a new document they just routed to.
-          // We need to create it!
-          handleNewDocument(session.user.id, id)
-        }
+      if (doc) {
+        setCurrentDocId(doc.id)
+        setCurrentTitle(doc.title || 'Untitled')
+        setDocumentContent(doc.content || '')
       } else {
-        handleNewDocument(session.user.id, id)
+        // Document doesn't exist — create it
+        const newDoc = {
+          id,
+          user_id: session.user.id,
+          title: 'Untitled',
+          content: '',
+          updated_at: new Date().toISOString(),
+        }
+
+        // Read workspace/folder from query params if coming from Dashboard
+        const searchParams = new URLSearchParams(window.location.search)
+        const wsId = searchParams.get('ws')
+        const folderId = searchParams.get('folder')
+
+        const insertData: Record<string, unknown> = { ...newDoc }
+        if (wsId) insertData.workspace_id = wsId
+        if (folderId) insertData.folder_id = folderId
+
+        const { error: insertError } = await supabase.from('documents').insert(insertData)
+        if (insertError) {
+          console.error('Failed to create document:', insertError)
+        }
+
+        setCurrentDocId(id)
+        setCurrentTitle('Untitled')
+        setDocumentContent('')
       }
 
       setIsLoading(false)
@@ -84,84 +98,41 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     init()
   }, [router, id])
 
-  // 2. Handle New Document
-  const handleNewDocument = async (userId: string | undefined = user?.id, providedId?: string) => {
-    if (!userId) return
+  // 2. Handle sidebar selecting a different document
+  const handleSelectDocument = useCallback((docId: string) => {
+    // Navigate to the new doc URL — this re-mounts the page with the new ID
+    router.push(`/editor/${docId}`)
+  }, [router])
 
-    const newDocId = providedId || uuidv4()
+  // 3. Handle new document from sidebar
+  const handleNewDocument = useCallback((doc: DocumentSummary) => {
+    router.push(`/editor/${doc.id}`)
+  }, [router])
 
-    // Read workspace/folder from query params if coming from Dashboard
-    const searchParams = new URLSearchParams(window.location.search)
-    const wsId = searchParams.get('ws')
-    const folderId = searchParams.get('folder')
-
-    const newDoc = {
-      id: newDocId,
-      user_id: userId,
-      content: '',
-      updated_at: new Date().toISOString(),
-      workspace_id: wsId || null,
-      folder_id: folderId || null
+  // 4. Handle document deletion from sidebar
+  const handleDeleteDocument = useCallback((deletedId: string) => {
+    if (deletedId === currentDocId) {
+      // Active doc was deleted — go to dashboard
+      router.push('/dashboard')
     }
+  }, [currentDocId, router])
 
-    // Optimistic update
-    setDocuments(prev => [newDoc, ...prev])
-    setCurrentDocId(newDocId)
-    setDocumentContent('')
-
-    await supabase.from('documents').insert(newDoc)
-  }
-
-  // 3. Handle Select Document
-  const handleSelectDocument = (docId: string) => {
-    const doc = documents.find(d => d.id === docId)
-    if (doc) {
-      setCurrentDocId(doc.id)
-      setDocumentContent(doc.content || '')
+  // 5. Handle title change from sidebar rename
+  const handleTitleChange = useCallback((docId: string, newTitle: string) => {
+    if (docId === currentDocId) {
+      setCurrentTitle(newTitle)
     }
-  }
+  }, [currentDocId])
 
-  // 4. Handle Delete Document (Trigger Modal)
-  const handleDeleteDocument = (docId: string) => {
-    setDocToDelete(docId)
-    setIsDeleteModalOpen(true)
-  }
-
-  // 5. Confirm Delete (Triggered by Modal)
-  const confirmDelete = async () => {
-    if (!docToDelete) return
-
-    setIsDeleting(true)
-    const { error } = await supabase.from('documents').delete().eq('id', docToDelete)
-
-    if (!error) {
-      setDocuments(prev => prev.filter(d => d.id !== docToDelete))
-      if (currentDocId === docToDelete) {
-        // Switch to next available or create new
-        const remaining = documents.filter(d => d.id !== docToDelete)
-        if (remaining.length > 0) {
-          handleSelectDocument(remaining[0].id)
-        } else {
-          handleNewDocument()
-        }
-      }
-    }
-    setIsDeleting(false)
-    setIsDeleteModalOpen(false)
-    setDocToDelete(null)
-  }
-
-  const handleContentUpdate = (newContent: string) => {
+  // 6. Handle content update from editor
+  const handleContentUpdate = useCallback((newContent: string) => {
     setDocumentContent(newContent)
-    // Update local list preview
-    setDocuments(prev => prev.map(d =>
-      d.id === currentDocId ? { ...d, content: newContent, updated_at: new Date().toISOString() } : d
-    ))
-  }
+  }, [])
 
-  const handleApplyChanges = (newContent: string) => {
+  // 7. Handle AI changes
+  const handleApplyChanges = useCallback((newContent: string) => {
     setDocumentContent(newContent)
-  }
+  }, [])
 
   if (isLoading) {
     return (
@@ -184,13 +155,11 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
             userId={user.id}
             currentDocId={currentDocId}
             onSelectDocument={handleSelectDocument}
-            onNewDocument={() => handleNewDocument()}
-            documents={documents}
+            onNewDocument={handleNewDocument}
             onDeleteDocument={handleDeleteDocument}
-          // Pass cleanup prop if needed or handle logic internally
+            onTitleChange={handleTitleChange}
           />
         </div>
-
 
         {/* Main Content Area */}
         <main className="flex-1 flex flex-col p-2 sm:p-4 gap-4 min-w-0 transition-all duration-300">
@@ -200,11 +169,19 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
               <header className="flex items-center justify-between px-6 py-3 rounded-xl border border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl">
                 <div className="flex items-center gap-3">
                   <div className="h-3 w-3 rounded-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)] animate-pulse" />
-                  <h1 className="font-mono font-bold tracking-tight text-lg bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">
-                    AI Document Editor <span className="text-[10px] text-zinc-500 ml-2 font-normal border border-white/10 px-1.5 py-0.5 rounded">PRO</span>
+                  <h1 className="font-mono font-bold tracking-tight text-lg bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent truncate max-w-[300px]">
+                    {currentTitle}
                   </h1>
                 </div>
                 <div className="flex items-center gap-4 text-xs font-mono text-zinc-500">
+                  {/* Share Button */}
+                  <button
+                    onClick={() => setIsShareOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/10 text-zinc-400 hover:text-cyan-400 transition-all"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Share</span>
+                  </button>
                   <span className="hidden sm:inline">User: {user.email}</span>
                 </div>
               </header>
@@ -218,13 +195,12 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                 {/* Editor Panel */}
                 <div className={cn("flex-[3] min-w-0 border-r border-white/5 relative transition-all duration-300", isMaximized ? "flex-[1]" : "")}>
                   <DocumentEditor
-                    key={currentDocId} // Force remount on doc switch
+                    key={currentDocId}
                     initialContent={documentContent}
                     documentId={currentDocId}
                     userId={user.id}
                     onContentUpdate={handleContentUpdate}
                     externalContent={documentContent}
-                    // Layout Controls
                     isSidebarOpen={isSidebarOpen}
                     setIsSidebarOpen={setIsSidebarOpen}
                     isMaximized={isMaximized}
@@ -245,17 +221,14 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
         </main>
       </div>
 
-      <ConfirmationModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          setIsDeleteModalOpen(false)
-          setDocToDelete(null)
-        }}
-        onConfirm={confirmDelete}
-        title="Delete Document"
-        message="Are you sure you want to delete this document? This action cannot be undone."
-        isLoading={isDeleting}
-      />
-    </div >
+      {/* Share Dialog */}
+      {isShareOpen && (
+        <ShareDialog
+          documentId={currentDocId}
+          ownerId={user.id}
+          onClose={() => setIsShareOpen(false)}
+        />
+      )}
+    </div>
   )
 }

@@ -1,7 +1,17 @@
-import { GoogleGenAI } from '@google/genai'
+import { GoogleGenAI, Content, Part, Tool } from '@google/genai'
 import { NextRequest, NextResponse } from 'next/server'
 import { functionTools } from '@/lib/function-tools'
 import { executeFunctionCall } from '@/lib/execute-function'
+
+interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+  file?: {
+    name: string
+    type: string
+    base64: string
+  }
+}
 
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
 
@@ -12,7 +22,7 @@ function formatDocumentForAI(content: string): string {
 }
 
 // Helper: Generate content with fallback logic for rate limits
-async function generateWithFallback(contents: any[], tools?: any[]) {
+async function generateWithFallback(contents: Content[], tools?: Tool[]) {
   try {
     // Try Premium Model (Gemini 2.5 Flash) as requested
     return await genai.models.generateContent({
@@ -22,9 +32,10 @@ async function generateWithFallback(contents: any[], tools?: any[]) {
         tools: tools
       }
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Log error but do not fallback as user requested specific model
-    console.error('Gemini 2.5 Flash Error:', error)
+    const message = error instanceof Error ? error.message : 'Unknown API error'
+    console.error('Gemini 2.5 Flash Error:', message)
     throw error
   }
 }
@@ -55,11 +66,11 @@ Always check the current document state before making changes.`
 
     // Prepare content parts for Gemini
     const userMessage = messages[messages.length - 1]
-    const contentParts: any[] = []
+    const contentParts: Part[] = []
     
     // Build history matching Content[] structure
-    const history = messages.slice(0, -1).map((m: any) => ({
-      role: m.role === 'user' ? 'user' : 'model',
+    const history: Content[] = messages.slice(0, -1).map((m: ChatMessage) => ({
+      role: (m.role === 'user' ? 'user' : 'model') as 'user' | 'model',
       parts: [{ text: m.content }]
     }))
 
@@ -92,10 +103,10 @@ Always check the current document state before making changes.`
     // 3. Add User's Actual Text
     finalUserParts.push({ text: `USER REQUEST: ${userMessage.content}` })
 
-    const contents = [
+    const contents: Content[] = [
       ...history,
       {
-        role: 'user',
+        role: 'user' as const,
         parts: finalUserParts
       }
     ]
@@ -114,12 +125,12 @@ Always check the current document state before making changes.`
         throw new Error('Function name is missing')
       }
       
-      const args = call.args
+      const args = call.args ?? {}
 
 // console.log('Function Call:', functionName, args)
 
       // Execute logic
-      const result = executeFunctionCall(functionName, args, documentContent)
+      const result = executeFunctionCall(functionName, args as Record<string, unknown>, documentContent)
 
       if (result.success && result.newContent) {
         // Send success + new content to AI
@@ -176,10 +187,11 @@ Always check the current document state before making changes.`
       content: response.text
     })
 
-  } catch (error: any) {
-    console.error('Gemini API Error:', error)
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Gemini API Error:', message)
     return NextResponse.json(
-      { error: 'Failed to process request', details: error.message },
+      { error: 'Failed to process request', details: message },
       { status: 500 }
     )
   }

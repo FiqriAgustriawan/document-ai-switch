@@ -9,9 +9,21 @@ interface UseAutoSaveProps {
 
 export function useAutoSave({ documentId, content, userId }: UseAutoSaveProps) {
   const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [lastSavedContent, setLastSavedContent] = useState(content)
   const contentRef = useRef(content)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Warn user about unsaved changes before closing tab/browser
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (contentRef.current !== lastSavedContent) {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [lastSavedContent])
 
   // Update ref whenever content changes to always have the latest value in timeout
   useEffect(() => {
@@ -40,13 +52,15 @@ export function useAutoSave({ documentId, content, userId }: UseAutoSaveProps) {
 
         if (error) {
           console.error('AutoSave Error:', error.message)
-          // Retry logic or notification could go here
+          setSaveError(`Save failed: ${error.message}`)
         } else {
           setLastSavedContent(contentRef.current)
-// console.log('Document auto-saved successfully')
+          setSaveError(null)
         }
-      } catch (err) {
-        console.error('AutoSave Unexpected Error:', err)
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error'
+        console.error('AutoSave Unexpected Error:', message)
+        setSaveError(`Save failed: ${message}`)
       } finally {
         setIsSaving(false)
       }
@@ -60,5 +74,5 @@ export function useAutoSave({ documentId, content, userId }: UseAutoSaveProps) {
     }
   }, [content, documentId, userId, lastSavedContent])
 
-  return { isSaving }
+  return { isSaving, saveError }
 }

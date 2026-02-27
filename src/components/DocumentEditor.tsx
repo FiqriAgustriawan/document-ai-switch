@@ -41,7 +41,7 @@ export default function DocumentEditor({
 }: DocumentEditorProps) {
   // Hooks
   const { state: content, setState: setContent, undo, redo, canUndo, canRedo } = useUndoRedo(initialContent)
-  const { isSaving } = useAutoSave({ documentId, content, userId })
+  const { isSaving, saveError } = useAutoSave({ documentId, content, userId })
 
   const [lineCount, setLineCount] = useState(1)
   const [showPreview, setShowPreview] = useState(false)
@@ -93,15 +93,15 @@ export default function DocumentEditor({
     }
 
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-      const recognition = new SpeechRecognition()
+      const SpeechRecognition = (window as unknown as Record<string, unknown>).SpeechRecognition || (window as unknown as Record<string, unknown>).webkitSpeechRecognition
+      const recognition = new (SpeechRecognition as new () => SpeechRecognition)()
       recognition.lang = 'id-ID' // Indonesian support
       recognition.continuous = false
       recognition.interimResults = false
 
       recognition.onstart = () => setIsListening(true)
       recognition.onend = () => setIsListening(false)
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
         const transcript = event.results[0][0].transcript
         const newContent = content + (content ? ' ' : '') + transcript
         setContent(newContent)
@@ -252,8 +252,8 @@ export default function DocumentEditor({
       </html>
     `
     // Convert HTML to DOCX Blob
-    asBlob(fullHtml).then((blob: any) => {
-      saveAs(blob, `document-${documentId.slice(0, 6)}.docx`)
+    asBlob(fullHtml).then((blob) => {
+      saveAs(blob as Blob, `document-${documentId.slice(0, 6)}.docx`)
     })
   }
 
@@ -394,6 +394,14 @@ export default function DocumentEditor({
               </>
             )}
           </div>
+
+          {/* Save Error Indicator */}
+          {saveError && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border bg-red-500/10 border-red-500/20 text-red-400 text-xs font-mono animate-pulse">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_5px_rgba(248,113,113,0.5)]" />
+              <span className="font-bold">SAVE FAILED</span>
+            </div>
+          )}
         </div>
       </div>
 

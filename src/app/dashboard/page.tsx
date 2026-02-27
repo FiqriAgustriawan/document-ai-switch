@@ -27,7 +27,8 @@ export default function Dashboard() {
     deleteWorkspace,
     createFolder,
     moveDocument,
-    createDocument
+    createDocument,
+    isOperating
   } = useWorkspaces(user?.id)
 
   const [activeTab, setActiveTab] = useState<'projects' | 'drafts' | 'trash'>('projects')
@@ -362,9 +363,14 @@ export default function Dashboard() {
                 <div className="relative">
                   <button
                     onClick={() => setIsNewDocMenuOpen(!isNewDocMenuOpen)}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+                    disabled={isOperating}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Plus className="w-4 h-4" />
+                    {isOperating ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4" />
+                    )}
                     New Document
                   </button>
 

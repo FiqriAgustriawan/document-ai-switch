@@ -51,7 +51,7 @@ export const functionTools: FunctionDeclaration[] = [
   },
   {
     name: 'update_doc_by_replace',
-    description: 'Replace specific text occurrences in the document globally.',
+    description: 'Replace specific text occurrences in the document. Supports replacing first, last, or all occurrences.',
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -62,6 +62,11 @@ export const functionTools: FunctionDeclaration[] = [
         new_text: {
           type: Type.STRING,
           description: 'The text to replace it with.',
+        },
+        mode: {
+          type: Type.STRING,
+          description: 'Which occurrence to replace. "first" = first only, "last" = last only, "all" = all occurrences. Defaults to "all".',
+          enum: ['first', 'last', 'all'],
         },
       },
       required: ['old_text', 'new_text'],

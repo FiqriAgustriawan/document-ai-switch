@@ -1,6 +1,6 @@
 export function executeFunctionCall(
   functionName: string,
-  args: any,
+  args: Record<string, unknown>,
   currentContent: string
 ): { success: boolean; newContent?: string; error?: string } {
   try {
@@ -8,7 +8,9 @@ export function executeFunctionCall(
     
     switch (functionName) {
       case 'update_doc_by_line': {
-        const { start_line, end_line, new_content } = args
+        const start_line = args.start_line as number
+        const end_line = args.end_line as number
+        const new_content = args.new_content as string
         
         // Validate line numbers
         if (start_line < 1 || end_line > lines.length || start_line > end_line) {
@@ -29,21 +31,41 @@ export function executeFunctionCall(
       }
       
       case 'update_doc_by_replace': {
-        const { old_text, new_text } = args
+        const { old_text, new_text, mode } = args as { old_text: string; new_text: string; mode?: string }
         
-        if (!currentContent.includes(old_text)) {
+        if (!currentContent.includes(old_text as string)) {
           return { success: false, error: `Text "${old_text}" not found in document` }
         }
-        
-        // Default behavior: replace all occurrences
-        const newContent = currentContent.replaceAll(old_text, new_text)
+
+        const replaceMode = (mode as string) || 'all'
+        let newContent: string
+
+        switch (replaceMode) {
+          case 'first':
+            // String.replace() only replaces first occurrence
+            newContent = currentContent.replace(old_text as string, new_text as string)
+            break
+          case 'last': {
+            const lastIndex = currentContent.lastIndexOf(old_text as string)
+            if (lastIndex === -1) {
+              return { success: false, error: `Text "${old_text}" not found in document` }
+            }
+            newContent = currentContent.slice(0, lastIndex) + (new_text as string) + currentContent.slice(lastIndex + (old_text as string).length)
+            break
+          }
+          case 'all':
+          default:
+            newContent = currentContent.replaceAll(old_text as string, new_text as string)
+            break
+        }
         
         return { success: true, newContent }
       }
       
       case 'insert_at_line': {
-        const { line, content, position } = args
-        const lineNumber = line // Map 'line' from schema to 'lineNumber' logic
+        const lineNumber = args.line as number
+        const insertContent = args.content as string
+        const position = args.position as string
         
         if (lineNumber < 1 || lineNumber > lines.length) {
           return { 
@@ -55,7 +77,7 @@ export function executeFunctionCall(
         const insertIndex = position === 'before' ? lineNumber - 1 : lineNumber
         const newLines = [
           ...lines.slice(0, insertIndex),
-          content,
+          insertContent,
           ...lines.slice(insertIndex)
         ]
         
@@ -63,7 +85,8 @@ export function executeFunctionCall(
       }
       
       case 'delete_lines': {
-        const { start_line, end_line } = args
+        const start_line = args.start_line as number
+        const end_line = args.end_line as number
         
         if (start_line < 1 || end_line > lines.length || start_line > end_line) {
           return { 
@@ -81,15 +104,15 @@ export function executeFunctionCall(
       }
       
       case 'append_to_document': {
-        // Handle undefined or null content explicitly if needed
-        const contentToAdd = args.content || '';
+        const contentToAdd = (args.content as string) || '';
         return { success: true, newContent: currentContent + '\n' + contentToAdd }
       }
       
       default:
         return { success: false, error: `Unknown function: ${functionName}` }
     }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown execution error'
+    return { success: false, error: message }
   }
 }
