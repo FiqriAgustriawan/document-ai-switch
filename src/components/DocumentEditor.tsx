@@ -28,7 +28,7 @@ interface DocumentEditorProps {
   setIsSidebarOpen?: (isOpen: boolean) => void
   isMaximized?: boolean
   setIsMaximized?: (max: boolean) => void
-  onCursorMove?: (line: number, col: number) => void
+  onCursorMove?: (x: number, y: number) => void
   collaborators?: CollaboratorPresence[]
 }
 
@@ -148,14 +148,14 @@ export default function DocumentEditor({
     }
   }
 
-  // Cursor position tracking
-  const handleCursorMove = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    if (!onCursorMove) return
-    const ta = e.currentTarget
-    const selectionStart = ta.selectionStart ?? 0
-    const textBefore = ta.value.substring(0, selectionStart)
-    const lines = textBefore.split('\n')
-    onCursorMove(lines.length, lines[lines.length - 1].length)
+  // Free mouse cursor tracking (Figma-style)
+  const editorPaneRef = useRef<HTMLDivElement>(null)
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!onCursorMove || !editorPaneRef.current) return
+    const rect = editorPaneRef.current.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+    onCursorMove(x, y)
   }
 
   // Handle Text Change
@@ -163,7 +163,6 @@ export default function DocumentEditor({
     const newContent = e.target.value
     setContent(newContent)
     onContentUpdate(newContent)
-    handleCursorMove(e)
   }
 
   // Handle Download (Markdown)
@@ -382,8 +381,8 @@ export default function DocumentEditor({
         </div>
 
         <div className="flex items-center gap-3 text-xs font-mono">
-          {/* Collaborator Avatars */}
-          {collaborators.length > 0 && (
+          {/* Collaborator Avatars — hidden when sidebar is open to prevent overflow */}
+          {collaborators.length > 0 && (isMaximized || !isSidebarOpen) && (
             <div className="flex items-center gap-2">
               <div className="flex -space-x-2">
                 {collaborators.slice(0, 5).map((user) => (
@@ -456,7 +455,7 @@ export default function DocumentEditor({
       <div className="relative flex-1 w-full overflow-hidden flex">
 
         {/* Editor Pane */}
-        <div className={cn("relative h-full transition-all duration-300", showPreview ? "w-1/2 border-r border-white/5" : "w-full")}>
+        <div ref={editorPaneRef} onMouseMove={handleMouseMove} className={cn("relative h-full transition-all duration-300", showPreview ? "w-1/2 border-r border-white/5" : "w-full")}>
           {/* Search Popover (Floating over Editor) */}
           {/* Search Popover (Floating & Expanding) */}
           {/* Search Popover (Floating & Expanding) */}
@@ -500,29 +499,19 @@ export default function DocumentEditor({
             ))}
           </div>
 
-          {/* Text Area */}
           <textarea
             ref={textareaRef}
             value={content}
             onChange={handleChange}
             onScroll={handleScroll}
-            onMouseUp={handleCursorMove}
-            onKeyUp={handleCursorMove}
-            onSelect={handleCursorMove}
             className="absolute inset-0 z-10 w-full h-full resize-none !pl-20 pr-4 py-4 font-mono text-sm leading-6 bg-transparent text-transparent caret-cyan-400 outline-none border-none whitespace-pre-wrap break-words overflow-auto no-scrollbar"
             spellCheck={false}
             autoCapitalize="off"
             autoComplete="off"
           />
 
-          {/* Remote Cursor Overlay */}
-          {collaborators.length > 0 && (
-            <CursorOverlay
-              collaborators={collaborators}
-              textareaRef={textareaRef}
-              content={content}
-            />
-          )}
+          {/* Remote Cursor Overlay (Figma-style) */}
+          <CursorOverlay collaborators={collaborators} />
 
           {/* Highlight Layer */}
           <pre

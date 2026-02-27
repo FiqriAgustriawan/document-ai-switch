@@ -77,8 +77,8 @@ export function SharedDocumentView({ document: initialDocument, permission }: Sh
     }
   }, [debouncedBroadcast])
 
-  const handleCursorMove = useCallback((line: number, col: number) => {
-    throttledUpdateCursor(line, col)
+  const handleCursorMove = useCallback((x: number, y: number) => {
+    throttledUpdateCursor(x, y)
   }, [throttledUpdateCursor])
 
   // Edit mode requires login
@@ -117,8 +117,8 @@ export function SharedDocumentView({ document: initialDocument, permission }: Sh
     <div className="h-screen flex flex-col bg-[#0a0a0a] text-zinc-100">
       {/* Shared document banner */}
       <div className={`px-6 py-3 flex items-center justify-between text-sm border-b ${isViewOnly
-          ? 'bg-zinc-900 border-zinc-800 text-zinc-300'
-          : 'bg-blue-950 border-blue-900 text-blue-200'
+        ? 'bg-zinc-900 border-zinc-800 text-zinc-300'
+        : 'bg-blue-950 border-blue-900 text-blue-200'
         }`}>
         <div className="flex items-center gap-3">
           {isViewOnly ? (

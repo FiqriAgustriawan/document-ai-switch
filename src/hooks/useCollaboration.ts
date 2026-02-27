@@ -6,15 +6,17 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export interface CursorPosition {
+  x: number  // percentage (0-100) relative to editor container width
+  y: number  // percentage (0-100) relative to editor container height
+}
+
 export interface CollaboratorPresence {
   userId: string
   displayName: string
   color: string
-  cursor: {
-    line: number
-    col: number
-  } | null
-  lastSeen: string
+  cursor: CursorPosition | null
+  lastSeen: number // timestamp ms
 }
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
@@ -24,9 +26,18 @@ const COLLABORATOR_COLORS = [
   '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
 ]
 
-function getColorForIndex(index: number): string {
-  return COLLABORATOR_COLORS[index % COLLABORATOR_COLORS.length]
+function getColorForUser(userId: string): string {
+  let hash = 0
+  for (let i = 0; i < userId.length; i++) {
+    hash = userId.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return COLLABORATOR_COLORS[Math.abs(hash) % COLLABORATOR_COLORS.length]
 }
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const HEARTBEAT_INTERVAL = 3000
+const USER_TIMEOUT = 10000
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -47,155 +58,186 @@ export function useCollaboration({
   const [collaborators, setCollaborators] = useState<CollaboratorPresence[]>([])
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [isConnected, setIsConnected] = useState(false)
-  const myColor = useRef<string>(COLLABORATOR_COLORS[0])
+  const myColor = getColorForUser(userId)
+
+  const collaboratorsRef = useRef<Map<string, CollaboratorPresence>>(new Map())
   const typingTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const cleanupRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const onContentChangeRef = useRef(onContentChange)
   onContentChangeRef.current = onContentChange
 
-  // ── Broadcast content change ──────────────────────────────────────────────
+  // ── Send broadcast ────────────────────────────────────────────────────────
+
+  const sendBroadcast = useCallback((event: string, payload: Record<string, unknown>) => {
+    const ch = channelRef.current
+    if (!ch) return
+    ch.send({
+      type: 'broadcast',
+      event,
+      payload: { ...payload, userId, displayName, color: myColor, timestamp: Date.now() },
+    })
+  }, [userId, displayName, myColor])
 
   const broadcastContentChange = useCallback((newContent: string) => {
-    const ch = channelRef.current
-    if (!ch) return
-    try {
-      ch.send({
-        type: 'broadcast',
-        event: 'content_change',
-        payload: { content: newContent, userId, timestamp: Date.now() },
-      })
-    } catch (err: unknown) {
-      console.error('Broadcast error:', err)
+    sendBroadcast('content_change', { content: newContent })
+  }, [sendBroadcast])
+
+  // cursor: {x, y} percentages relative to editor container
+  const updateCursor = useCallback((x: number, y: number) => {
+    sendBroadcast('cursor_update', { cursor: { x, y } })
+  }, [sendBroadcast])
+
+  // ── Sync state ────────────────────────────────────────────────────────────
+
+  const syncCollaboratorsState = useCallback(() => {
+    const now = Date.now()
+    const map = collaboratorsRef.current
+    for (const [uid, user] of map.entries()) {
+      if (now - user.lastSeen > USER_TIMEOUT) {
+        map.delete(uid)
+      }
     }
+    const others = Array.from(map.values()).filter((u) => u.userId !== userId)
+    setCollaborators(others)
   }, [userId])
 
-  // ── Update cursor position (via presence track) ───────────────────────────
+  // ── Handle events ─────────────────────────────────────────────────────────
 
-  const updateCursor = useCallback((line: number, col: number) => {
-    const ch = channelRef.current
-    if (!ch) return
-    try {
-      ch.track({
-        userId,
-        displayName,
-        color: myColor.current,
-        cursor: { line, col },
-        lastSeen: new Date().toISOString(),
+  const handleUserEvent = useCallback((payload: Record<string, unknown>) => {
+    const uid = payload.userId as string
+    if (uid === userId) return
+
+    const existing = collaboratorsRef.current.get(uid)
+    collaboratorsRef.current.set(uid, {
+      userId: uid,
+      displayName: (payload.displayName as string) || 'Anonymous',
+      color: (payload.color as string) || getColorForUser(uid),
+      cursor: existing?.cursor || null,
+      lastSeen: Date.now(),
+    })
+    syncCollaboratorsState()
+  }, [userId, syncCollaboratorsState])
+
+  const handleCursorEvent = useCallback((payload: Record<string, unknown>) => {
+    const uid = payload.userId as string
+    if (uid === userId) return
+
+    const existing = collaboratorsRef.current.get(uid)
+    const cursor = payload.cursor as CursorPosition | null
+
+    collaboratorsRef.current.set(uid, {
+      userId: uid,
+      displayName: (payload.displayName as string) || existing?.displayName || 'Anonymous',
+      color: (payload.color as string) || existing?.color || getColorForUser(uid),
+      cursor,
+      lastSeen: Date.now(),
+    })
+    syncCollaboratorsState()
+  }, [userId, syncCollaboratorsState])
+
+  const handleContentEvent = useCallback((payload: Record<string, unknown>) => {
+    const uid = payload.userId as string
+    if (uid === userId) return
+
+    const existing = collaboratorsRef.current.get(uid)
+    if (existing) {
+      existing.lastSeen = Date.now()
+    } else {
+      collaboratorsRef.current.set(uid, {
+        userId: uid,
+        displayName: (payload.displayName as string) || 'Anonymous',
+        color: (payload.color as string) || getColorForUser(uid),
+        cursor: null,
+        lastSeen: Date.now(),
       })
-    } catch (err: unknown) {
-      console.error('Cursor track error:', err)
     }
-  }, [userId, displayName])
+    syncCollaboratorsState()
+
+    setTypingUsers((prev) =>
+      prev.includes(uid) ? prev : [...prev, uid]
+    )
+    clearTimeout(typingTimersRef.current[uid])
+    typingTimersRef.current[uid] = setTimeout(() => {
+      setTypingUsers((prev) => prev.filter((id) => id !== uid))
+    }, 2000)
+
+    if (onContentChangeRef.current) {
+      onContentChangeRef.current(payload.content as string, uid)
+    }
+  }, [userId, syncCollaboratorsState])
 
   // ── Setup channel ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!documentId || !userId) return
 
-    console.log(`[Collab] Joining channel document:${documentId} as ${displayName} (${userId})`)
-
-    const channel = supabase.channel(`document:${documentId}`, {
-      config: {
-        presence: { key: userId },
-        broadcast: { self: false },
-      },
+    const channel = supabase.channel(`doc-collab-${documentId}`, {
+      config: { broadcast: { self: false } },
     })
 
-    // Presence sync — update collaborators list
-    channel.on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState<CollaboratorPresence>()
-      const allUsers = Object.values(state).map((entries) => entries[0])
-      const others = allUsers.filter((u) => u.userId !== userId)
-
-      console.log(`[Collab] Presence sync: ${allUsers.length} total, ${others.length} others`)
-
-      // Assign stable colors based on join order
-      const allSorted = [...allUsers].sort(
-        (a, b) => new Date(a.lastSeen).getTime() - new Date(b.lastSeen).getTime()
-      )
-      const myIndex = allSorted.findIndex((u) => u.userId === userId)
-      if (myIndex >= 0) myColor.current = getColorForIndex(myIndex)
-
-      setCollaborators(others)
+    channel.on('broadcast', { event: 'heartbeat' }, ({ payload }) => handleUserEvent(payload))
+    channel.on('broadcast', { event: 'user_join' }, ({ payload }) => handleUserEvent(payload))
+    channel.on('broadcast', { event: 'cursor_update' }, ({ payload }) => handleCursorEvent(payload))
+    channel.on('broadcast', { event: 'content_change' }, ({ payload }) => handleContentEvent(payload))
+    channel.on('broadcast', { event: 'user_leave' }, ({ payload }) => {
+      const uid = payload.userId as string
+      collaboratorsRef.current.delete(uid)
+      syncCollaboratorsState()
     })
 
-    channel.on('presence', { event: 'join' }, ({ newPresences }) => {
-      console.log('[Collab] User joined:', newPresences.map((p) => (p as unknown as CollaboratorPresence).displayName))
-    })
-
-    channel.on('presence', { event: 'leave' }, ({ leftPresences }) => {
-      console.log('[Collab] User left:', leftPresences.map((p) => (p as unknown as CollaboratorPresence).displayName))
-    })
-
-    // Broadcast — receive content changes from others
-    channel.on('broadcast', { event: 'content_change' }, ({ payload }) => {
-      if (payload.userId === userId) return
-
-      console.log(`[Collab] Content change from ${payload.userId}`)
-
-      // Track typing users
-      setTypingUsers((prev) =>
-        prev.includes(payload.userId) ? prev : [...prev, payload.userId]
-      )
-
-      // Clear typing after 2s idle
-      clearTimeout(typingTimersRef.current[payload.userId])
-      typingTimersRef.current[payload.userId] = setTimeout(() => {
-        setTypingUsers((prev) => prev.filter((id) => id !== payload.userId))
-      }, 2000)
-
-      // Apply the content change
-      if (onContentChangeRef.current) {
-        onContentChangeRef.current(payload.content, payload.userId)
-      }
-    })
-
-    // Subscribe and track presence
-    channel.subscribe(async (status, err) => {
-      console.log(`[Collab] Channel status: ${status}`, err || '')
+    channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         setIsConnected(true)
-        try {
-          await channel.track({
-            userId,
-            displayName,
-            color: myColor.current,
-            cursor: null,
-            lastSeen: new Date().toISOString(),
-          })
-          console.log('[Collab] Presence tracked successfully')
-        } catch (trackErr: unknown) {
-          console.error('[Collab] Failed to track presence:', trackErr)
-        }
-      } else if (status === 'CHANNEL_ERROR') {
-        console.error('[Collab] Channel error:', err)
-        setIsConnected(false)
-      } else if (status === 'TIMED_OUT') {
-        console.error('[Collab] Channel timed out')
-        setIsConnected(false)
+        channel.send({
+          type: 'broadcast',
+          event: 'user_join',
+          payload: { userId, displayName, color: myColor, timestamp: Date.now() },
+        })
       }
     })
 
     channelRef.current = channel
+    setTimeout(() => setIsConnected(true), 1000)
 
-    // Cleanup
+    heartbeatRef.current = setInterval(() => {
+      channel.send({
+        type: 'broadcast',
+        event: 'heartbeat',
+        payload: { userId, displayName, color: myColor, timestamp: Date.now() },
+      })
+    }, HEARTBEAT_INTERVAL)
+
+    cleanupRef.current = setInterval(() => {
+      syncCollaboratorsState()
+    }, 5000)
+
     return () => {
-      console.log(`[Collab] Leaving channel document:${documentId}`)
+      channel.send({
+        type: 'broadcast',
+        event: 'user_leave',
+        payload: { userId, timestamp: Date.now() },
+      })
+
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+      if (cleanupRef.current) clearInterval(cleanupRef.current)
       Object.values(typingTimersRef.current).forEach(clearTimeout)
       typingTimersRef.current = {}
 
       supabase.removeChannel(channel)
       channelRef.current = null
+      collaboratorsRef.current.clear()
       setIsConnected(false)
       setCollaborators([])
       setTypingUsers([])
     }
-  }, [documentId, userId, displayName]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [documentId, userId, displayName, myColor]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     collaborators,
     typingUsers,
     isConnected,
-    myColor: myColor.current,
+    myColor,
     broadcastContentChange,
     updateCursor,
   }

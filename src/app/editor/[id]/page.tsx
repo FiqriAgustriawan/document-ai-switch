@@ -173,8 +173,8 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   }, [debouncedBroadcast])
 
   // 8. Handle cursor move (throttled)
-  const handleCursorMove = useCallback((line: number, col: number) => {
-    throttledUpdateCursor(line, col)
+  const handleCursorMove = useCallback((x: number, y: number) => {
+    throttledUpdateCursor(x, y)
   }, [throttledUpdateCursor])
 
   if (isLoading) {
