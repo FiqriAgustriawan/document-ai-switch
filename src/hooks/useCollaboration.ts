@@ -8,11 +8,21 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 
 export type CursorMode = 'pointer' | 'typing'
 
-export interface CursorPosition {
-  x: number  // percentage (0-100) relative to editor container
-  y: number  // percentage (0-100) relative to editor container
-  mode: CursorMode
+// Pointer cursor: percentage-based (relative to editor pane)
+// Typing cursor: line/col based (text caret position)
+export interface PointerCursor {
+  mode: 'pointer'
+  x: number  // 0-100%
+  y: number  // 0-100%
 }
+
+export interface TypingCursor {
+  mode: 'typing'
+  line: number  // 1-indexed line number
+  col: number   // 0-indexed column
+}
+
+export type CursorPosition = PointerCursor | TypingCursor
 
 export interface CollaboratorPresence {
   userId: string
@@ -86,14 +96,14 @@ export function useCollaboration({
     sendBroadcast('content_change', { content: newContent })
   }, [sendBroadcast])
 
-  // Pointer mode: free mouse cursor (x, y as percentage)
+  // Pointer mode: free mouse cursor
   const updateCursor = useCallback((x: number, y: number) => {
-    sendBroadcast('cursor_update', { cursor: { x, y, mode: 'pointer' } })
+    sendBroadcast('cursor_update', { cursor: { mode: 'pointer', x, y } })
   }, [sendBroadcast])
 
-  // Typing mode: text caret cursor (x, y as percentage of editor pane)
-  const updateTypingCursor = useCallback((x: number, y: number) => {
-    sendBroadcast('cursor_update', { cursor: { x, y, mode: 'typing' } })
+  // Typing mode: text caret position (line/col)
+  const updateTypingCursor = useCallback((line: number, col: number) => {
+    sendBroadcast('cursor_update', { cursor: { mode: 'typing', line, col } })
   }, [sendBroadcast])
 
   // ── Sync state ────────────────────────────────────────────────────────────

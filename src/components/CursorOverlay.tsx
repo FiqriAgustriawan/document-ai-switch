@@ -1,9 +1,18 @@
 'use client'
 
-import type { CollaboratorPresence } from '@/hooks/useCollaboration'
+import { useCallback, useEffect, useState } from 'react'
+import type { CollaboratorPresence, PointerCursor, TypingCursor } from '@/hooks/useCollaboration'
 
 interface CursorOverlayProps {
   collaborators: CollaboratorPresence[]
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+}
+
+interface RenderedCursor {
+  collaborator: CollaboratorPresence
+  left: number   // px
+  top: number    // px
+  isTyping: boolean
 }
 
 // Figma-style arrow cursor SVG
@@ -28,89 +37,159 @@ function ArrowCursor({ color }: { color: string }) {
   )
 }
 
-// Typing mode I-beam cursor
-function TypingCursor({ color }: { color: string }) {
+// Typing I-beam cursor — sized to match monospace text
+function TypingCursor({ color, lineHeight }: { color: string; lineHeight: number }) {
   return (
     <div className="relative flex flex-col items-center">
       {/* Top serif */}
-      <div
-        style={{ backgroundColor: color, width: 8, height: 2, borderRadius: 1 }}
-      />
-      {/* Vertical bar (blinking) */}
+      <div style={{ backgroundColor: color, width: 6, height: 1.5, borderRadius: 1 }} />
+      {/* Vertical bar */}
       <div
         className="animate-pulse"
         style={{
           backgroundColor: color,
           width: 2,
-          height: 20,
-          boxShadow: `0 0 6px ${color}80`,
+          height: Math.max(lineHeight - 4, 14),
+          boxShadow: `0 0 8px ${color}90`,
         }}
       />
       {/* Bottom serif */}
-      <div
-        style={{ backgroundColor: color, width: 8, height: 2, borderRadius: 1 }}
-      />
+      <div style={{ backgroundColor: color, width: 6, height: 1.5, borderRadius: 1 }} />
     </div>
   )
 }
 
-export function CursorOverlay({ collaborators }: CursorOverlayProps) {
-  const activeCursors = collaborators.filter((c) => c.cursor !== null)
+export function CursorOverlay({ collaborators, textareaRef }: CursorOverlayProps) {
+  const [cursors, setCursors] = useState<RenderedCursor[]>([])
+  const [lineHeight, setLineHeight] = useState(24)
 
-  if (activeCursors.length === 0) return null
+  const calculate = useCallback(() => {
+    const ta = textareaRef.current
+    if (!ta) return
+
+    const parent = ta.parentElement
+    if (!parent) return
+
+    const style = window.getComputedStyle(ta)
+    const fontSize = parseFloat(style.fontSize)
+    const lh = parseFloat(style.lineHeight) || fontSize * 1.5
+    setLineHeight(lh)
+
+    const paddingTop = parseFloat(style.paddingTop)
+    const paddingLeft = parseFloat(style.paddingLeft)
+
+    // Measure char width for monospace
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.font = `${style.fontWeight} ${fontSize}px ${style.fontFamily}`
+    const charWidth = ctx.measureText('M').width
+
+    const parentRect = parent.getBoundingClientRect()
+    const scrollTop = ta.scrollTop
+    const scrollLeft = ta.scrollLeft
+
+    const results: RenderedCursor[] = []
+
+    for (const collab of collaborators) {
+      if (!collab.cursor) continue
+
+      let left: number
+      let top: number
+      let isTyping: boolean
+
+      if (collab.cursor.mode === 'typing') {
+        const tc = collab.cursor as TypingCursor
+        // Calculate pixel position from line/col using local textarea metrics
+        left = paddingLeft + tc.col * charWidth - scrollLeft
+        top = paddingTop + (tc.line - 1) * lh - scrollTop
+        isTyping = true
+      } else {
+        const pc = collab.cursor as PointerCursor
+        // Percentage-based position relative to parent
+        left = (pc.x / 100) * parentRect.width
+        top = (pc.y / 100) * parentRect.height
+        isTyping = false
+      }
+
+      // Only show if visible within the pane
+      if (top < -40 || top > parentRect.height + 40) continue
+      if (left < -40 || left > parentRect.width + 40) continue
+
+      results.push({ collaborator: collab, left, top, isTyping })
+    }
+
+    setCursors(results)
+  }, [collaborators, textareaRef])
+
+  // Recalculate on collaborators change
+  useEffect(() => {
+    calculate()
+  }, [calculate])
+
+  // Recalculate on scroll
+  useEffect(() => {
+    const ta = textareaRef.current
+    if (!ta) return
+    const handleScroll = () => calculate()
+    ta.addEventListener('scroll', handleScroll)
+    return () => ta.removeEventListener('scroll', handleScroll)
+  }, [textareaRef, calculate])
+
+  // Periodic updates for smooth animation
+  useEffect(() => {
+    const id = setInterval(calculate, 150)
+    return () => clearInterval(id)
+  }, [calculate])
+
+  if (cursors.length === 0) return null
 
   return (
     <div
       className="absolute inset-0 pointer-events-none overflow-hidden"
       style={{ zIndex: 50 }}
     >
-      {activeCursors.map((collaborator) => {
-        if (!collaborator.cursor) return null
-        const { x, y, mode } = collaborator.cursor
-        const isTyping = mode === 'typing'
+      {cursors.map(({ collaborator, left, top, isTyping }) => (
+        <div
+          key={collaborator.userId}
+          className="absolute"
+          style={{
+            left,
+            top,
+            transition: 'left 80ms ease-out, top 80ms ease-out',
+            willChange: 'left, top',
+          }}
+        >
+          {/* Cursor icon */}
+          {isTyping ? (
+            <TypingCursor color={collaborator.color} lineHeight={lineHeight} />
+          ) : (
+            <ArrowCursor color={collaborator.color} />
+          )}
 
-        return (
+          {/* Name label */}
           <div
-            key={collaborator.userId}
-            className="absolute"
+            className="absolute whitespace-nowrap shadow-xl"
             style={{
-              left: `${x}%`,
-              top: `${y}%`,
-              transition: 'left 100ms ease-out, top 100ms ease-out',
-              willChange: 'left, top',
+              backgroundColor: collaborator.color,
+              color: 'white',
+              fontSize: '10px',
+              fontWeight: 700,
+              padding: '1px 6px',
+              top: isTyping ? lineHeight + 2 : 18,
+              left: isTyping ? -2 : 10,
+              borderRadius: isTyping ? '3px' : '2px 5px 5px 5px',
+              letterSpacing: '0.02em',
+              lineHeight: '14px',
             }}
           >
-            {/* Cursor icon based on mode */}
-            {isTyping ? (
-              <TypingCursor color={collaborator.color} />
-            ) : (
-              <ArrowCursor color={collaborator.color} />
+            {collaborator.displayName}
+            {isTyping && (
+              <span className="ml-1 opacity-60 text-[8px]">typing</span>
             )}
-
-            {/* Name label */}
-            <div
-              className="absolute whitespace-nowrap shadow-xl"
-              style={{
-                backgroundColor: collaborator.color,
-                color: 'white',
-                fontSize: '11px',
-                fontWeight: 700,
-                padding: '2px 8px',
-                top: isTyping ? 26 : 18,
-                left: isTyping ? -4 : 10,
-                borderRadius: isTyping ? '4px' : '2px 6px 6px 6px',
-                letterSpacing: '0.01em',
-                lineHeight: '16px',
-              }}
-            >
-              {collaborator.displayName}
-              {isTyping && (
-                <span className="ml-1 opacity-70 text-[9px]">typing</span>
-              )}
-            </div>
           </div>
-        )
-      })}
+        </div>
+      ))}
     </div>
   )
 }

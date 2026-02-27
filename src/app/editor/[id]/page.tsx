@@ -180,8 +180,8 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
 
   // 9. Handle typing cursor move (throttled)
   const throttledUpdateTypingCursor = useThrottle(updateTypingCursor, 100)
-  const handleTypingCursorMove = useCallback((x: number, y: number) => {
-    throttledUpdateTypingCursor(x, y)
+  const handleTypingCursorMove = useCallback((line: number, col: number) => {
+    throttledUpdateTypingCursor(line, col)
   }, [throttledUpdateTypingCursor])
 
   if (isLoading) {
