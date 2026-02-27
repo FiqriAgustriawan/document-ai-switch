@@ -6,9 +6,12 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type CursorMode = 'pointer' | 'typing'
+
 export interface CursorPosition {
-  x: number  // percentage (0-100) relative to editor container width
-  y: number  // percentage (0-100) relative to editor container height
+  x: number  // percentage (0-100) relative to editor container
+  y: number  // percentage (0-100) relative to editor container
+  mode: CursorMode
 }
 
 export interface CollaboratorPresence {
@@ -16,7 +19,7 @@ export interface CollaboratorPresence {
   displayName: string
   color: string
   cursor: CursorPosition | null
-  lastSeen: number // timestamp ms
+  lastSeen: number
 }
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
@@ -67,7 +70,7 @@ export function useCollaboration({
   const onContentChangeRef = useRef(onContentChange)
   onContentChangeRef.current = onContentChange
 
-  // ── Send broadcast ────────────────────────────────────────────────────────
+  // ── Broadcast ─────────────────────────────────────────────────────────────
 
   const sendBroadcast = useCallback((event: string, payload: Record<string, unknown>) => {
     const ch = channelRef.current
@@ -83,9 +86,14 @@ export function useCollaboration({
     sendBroadcast('content_change', { content: newContent })
   }, [sendBroadcast])
 
-  // cursor: {x, y} percentages relative to editor container
+  // Pointer mode: free mouse cursor (x, y as percentage)
   const updateCursor = useCallback((x: number, y: number) => {
-    sendBroadcast('cursor_update', { cursor: { x, y } })
+    sendBroadcast('cursor_update', { cursor: { x, y, mode: 'pointer' } })
+  }, [sendBroadcast])
+
+  // Typing mode: text caret cursor (x, y as percentage of editor pane)
+  const updateTypingCursor = useCallback((x: number, y: number) => {
+    sendBroadcast('cursor_update', { cursor: { x, y, mode: 'typing' } })
   }, [sendBroadcast])
 
   // ── Sync state ────────────────────────────────────────────────────────────
@@ -93,8 +101,9 @@ export function useCollaboration({
   const syncCollaboratorsState = useCallback(() => {
     const now = Date.now()
     const map = collaboratorsRef.current
-    for (const [uid, user] of map.entries()) {
-      if (now - user.lastSeen > USER_TIMEOUT) {
+    for (const [uid] of map.entries()) {
+      const user = map.get(uid)
+      if (user && now - user.lastSeen > USER_TIMEOUT) {
         map.delete(uid)
       }
     }
@@ -102,7 +111,7 @@ export function useCollaboration({
     setCollaborators(others)
   }, [userId])
 
-  // ── Handle events ─────────────────────────────────────────────────────────
+  // ── Event handlers ────────────────────────────────────────────────────────
 
   const handleUserEvent = useCallback((payload: Record<string, unknown>) => {
     const uid = payload.userId as string
@@ -167,7 +176,7 @@ export function useCollaboration({
     }
   }, [userId, syncCollaboratorsState])
 
-  // ── Setup channel ─────────────────────────────────────────────────────────
+  // ── Channel setup ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!documentId || !userId) return
@@ -240,5 +249,6 @@ export function useCollaboration({
     myColor,
     broadcastContentChange,
     updateCursor,
+    updateTypingCursor,
   }
 }

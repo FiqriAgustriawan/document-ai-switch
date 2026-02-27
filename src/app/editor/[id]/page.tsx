@@ -54,6 +54,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     isConnected,
     broadcastContentChange,
     updateCursor,
+    updateTypingCursor,
   } = useCollaboration({
     documentId: currentDocId,
     userId: user?.id ?? '',
@@ -177,6 +178,12 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     throttledUpdateCursor(x, y)
   }, [throttledUpdateCursor])
 
+  // 9. Handle typing cursor move (throttled)
+  const throttledUpdateTypingCursor = useThrottle(updateTypingCursor, 100)
+  const handleTypingCursorMove = useCallback((x: number, y: number) => {
+    throttledUpdateTypingCursor(x, y)
+  }, [throttledUpdateTypingCursor])
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black text-white">
@@ -256,6 +263,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                     isMaximized={isMaximized}
                     setIsMaximized={setIsMaximized}
                     onCursorMove={handleCursorMove}
+                    onTypingCursorMove={handleTypingCursorMove}
                     collaborators={collaborators}
                   />
                 </div>

@@ -29,6 +29,7 @@ interface DocumentEditorProps {
   isMaximized?: boolean
   setIsMaximized?: (max: boolean) => void
   onCursorMove?: (x: number, y: number) => void
+  onTypingCursorMove?: (x: number, y: number) => void
   collaborators?: CollaboratorPresence[]
 }
 
@@ -43,6 +44,7 @@ export default function DocumentEditor({
   isMaximized,
   setIsMaximized,
   onCursorMove,
+  onTypingCursorMove,
   collaborators = []
 }: DocumentEditorProps) {
   // Hooks
@@ -163,6 +165,39 @@ export default function DocumentEditor({
     const newContent = e.target.value
     setContent(newContent)
     onContentUpdate(newContent)
+
+    // Send typing cursor at caret position
+    if (onTypingCursorMove && editorPaneRef.current) {
+      const ta = e.target
+      const selectionStart = ta.selectionStart ?? 0
+      const textBefore = ta.value.substring(0, selectionStart)
+      const lines = textBefore.split('\n')
+      const lineIndex = lines.length - 1
+      const colIndex = lines[lineIndex].length
+
+      // Calculate pixel position of caret, then convert to percentage
+      const style = window.getComputedStyle(ta)
+      const fontSize = parseFloat(style.fontSize)
+      const lineHeight = parseFloat(style.lineHeight) || fontSize * 1.5
+      const paddingTop = parseFloat(style.paddingTop)
+      const paddingLeft = parseFloat(style.paddingLeft)
+
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.font = `${style.fontWeight} ${fontSize}px ${style.fontFamily}`
+        const charWidth = ctx.measureText('M').width
+
+        const rect = editorPaneRef.current.getBoundingClientRect()
+        const caretX = paddingLeft + colIndex * charWidth - ta.scrollLeft
+        const caretY = paddingTop + lineIndex * lineHeight - ta.scrollTop
+
+        const xPct = (caretX / rect.width) * 100
+        const yPct = (caretY / rect.height) * 100
+
+        onTypingCursorMove(xPct, yPct)
+      }
+    }
   }
 
   // Handle Download (Markdown)

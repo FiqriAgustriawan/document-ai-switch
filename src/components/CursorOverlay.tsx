@@ -28,6 +28,32 @@ function ArrowCursor({ color }: { color: string }) {
   )
 }
 
+// Typing mode I-beam cursor
+function TypingCursor({ color }: { color: string }) {
+  return (
+    <div className="relative flex flex-col items-center">
+      {/* Top serif */}
+      <div
+        style={{ backgroundColor: color, width: 8, height: 2, borderRadius: 1 }}
+      />
+      {/* Vertical bar (blinking) */}
+      <div
+        className="animate-pulse"
+        style={{
+          backgroundColor: color,
+          width: 2,
+          height: 20,
+          boxShadow: `0 0 6px ${color}80`,
+        }}
+      />
+      {/* Bottom serif */}
+      <div
+        style={{ backgroundColor: color, width: 8, height: 2, borderRadius: 1 }}
+      />
+    </div>
+  )
+}
+
 export function CursorOverlay({ collaborators }: CursorOverlayProps) {
   const activeCursors = collaborators.filter((c) => c.cursor !== null)
 
@@ -40,7 +66,8 @@ export function CursorOverlay({ collaborators }: CursorOverlayProps) {
     >
       {activeCursors.map((collaborator) => {
         if (!collaborator.cursor) return null
-        const { x, y } = collaborator.cursor
+        const { x, y, mode } = collaborator.cursor
+        const isTyping = mode === 'typing'
 
         return (
           <div
@@ -53,8 +80,13 @@ export function CursorOverlay({ collaborators }: CursorOverlayProps) {
               willChange: 'left, top',
             }}
           >
-            {/* Figma-style Arrow Cursor */}
-            <ArrowCursor color={collaborator.color} />
+            {/* Cursor icon based on mode */}
+            {isTyping ? (
+              <TypingCursor color={collaborator.color} />
+            ) : (
+              <ArrowCursor color={collaborator.color} />
+            )}
+
             {/* Name label */}
             <div
               className="absolute whitespace-nowrap shadow-xl"
@@ -64,14 +96,17 @@ export function CursorOverlay({ collaborators }: CursorOverlayProps) {
                 fontSize: '11px',
                 fontWeight: 700,
                 padding: '2px 8px',
-                top: 18,
-                left: 10,
-                borderRadius: '2px 6px 6px 6px',
+                top: isTyping ? 26 : 18,
+                left: isTyping ? -4 : 10,
+                borderRadius: isTyping ? '4px' : '2px 6px 6px 6px',
                 letterSpacing: '0.01em',
                 lineHeight: '16px',
               }}
             >
               {collaborator.displayName}
+              {isTyping && (
+                <span className="ml-1 opacity-70 text-[9px]">typing</span>
+              )}
             </div>
           </div>
         )
