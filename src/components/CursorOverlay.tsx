@@ -12,8 +12,29 @@ interface CursorOverlayProps {
 interface CursorPixelPosition {
   x: number
   y: number
-  lineHeight: number
   collaborator: CollaboratorPresence
+}
+
+// Figma-style arrow cursor SVG
+function ArrowCursor({ color }: { color: string }) {
+  return (
+    <svg
+      width="16"
+      height="20"
+      viewBox="0 0 16 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ filter: `drop-shadow(0 1px 2px rgba(0,0,0,0.5))` }}
+    >
+      <path
+        d="M0.5 0.5L15 10.5L8 11.5L5 19L0.5 0.5Z"
+        fill={color}
+        stroke="white"
+        strokeWidth="1"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
 }
 
 export function CursorOverlay({ collaborators, textareaRef, content }: CursorOverlayProps) {
@@ -50,9 +71,9 @@ export function CursorOverlay({ collaborators, textareaRef, content }: CursorOve
       const y = paddingTop + (line - 1) * lineHeight - scrollTop
 
       // Only show if within visible area
-      if (y < -lineHeight || y > textarea.clientHeight + lineHeight) continue
+      if (y < -30 || y > textarea.clientHeight + 30) continue
 
-      positions.push({ x, y, lineHeight, collaborator })
+      positions.push({ x, y, collaborator })
     }
 
     setCursorPositions(positions)
@@ -67,17 +88,15 @@ export function CursorOverlay({ collaborators, textareaRef, content }: CursorOve
   useEffect(() => {
     const textarea = textareaRef.current
     if (!textarea) return
-
     const handleScroll = () => calculatePositions()
     textarea.addEventListener('scroll', handleScroll)
     return () => textarea.removeEventListener('scroll', handleScroll)
   }, [textareaRef, calculatePositions])
 
-  // Recalculate on window resize
+  // Periodic recalculation for smooth updates
   useEffect(() => {
-    const handleResize = () => calculatePositions()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    const interval = setInterval(calculatePositions, 200)
+    return () => clearInterval(interval)
   }, [calculatePositions])
 
   if (!textareaRef.current || cursorPositions.length === 0) return null
@@ -85,36 +104,34 @@ export function CursorOverlay({ collaborators, textareaRef, content }: CursorOve
   return (
     <div
       className="absolute inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 20 }}
+      style={{ zIndex: 25 }}
     >
-      {cursorPositions.map(({ x, y, lineHeight: lh, collaborator }) => (
+      {cursorPositions.map(({ x, y, collaborator }) => (
         <div
           key={collaborator.userId}
-          className="absolute transition-all duration-150 ease-out"
-          style={{ left: x, top: y }}
+          className="absolute"
+          style={{
+            left: x,
+            top: y,
+            transition: 'left 150ms ease-out, top 150ms ease-out',
+          }}
         >
-          {/* Cursor line — blinking animation */}
+          {/* Figma-style Arrow Cursor */}
+          <ArrowCursor color={collaborator.color} />
+          {/* Name label below cursor */}
           <div
-            className="rounded-full animate-pulse"
-            style={{
-              width: 2,
-              height: lh,
-              backgroundColor: collaborator.color,
-              boxShadow: `0 0 8px ${collaborator.color}80, 0 0 2px ${collaborator.color}`,
-            }}
-          />
-          {/* Name label */}
-          <div
-            className="absolute whitespace-nowrap rounded-md shadow-xl border border-white/10"
+            className="absolute whitespace-nowrap rounded-sm shadow-lg"
             style={{
               backgroundColor: collaborator.color,
               color: 'white',
-              fontSize: '10px',
+              fontSize: '11px',
               fontWeight: 700,
-              padding: '1px 6px',
-              top: -18,
-              left: 4,
-              letterSpacing: '0.02em',
+              padding: '2px 8px',
+              top: 16,
+              left: 12,
+              borderRadius: '2px 6px 6px 6px',
+              letterSpacing: '0.01em',
+              lineHeight: '14px',
             }}
           >
             {collaborator.displayName}

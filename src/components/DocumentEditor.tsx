@@ -382,6 +382,36 @@ export default function DocumentEditor({
         </div>
 
         <div className="flex items-center gap-3 text-xs font-mono">
+          {/* Collaborator Avatars */}
+          {collaborators.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="flex -space-x-2">
+                {collaborators.slice(0, 5).map((user) => (
+                  <div
+                    key={user.userId}
+                    title={user.displayName}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white border-2 border-[#0a0a0a] cursor-default transition-all duration-200 hover:scale-125 hover:z-10 hover:ring-2 hover:ring-white/20"
+                    style={{ backgroundColor: user.color }}
+                  >
+                    {user.displayName.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)}
+                  </div>
+                ))}
+                {collaborators.length > 5 && (
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-zinc-300 bg-zinc-700 border-2 border-[#0a0a0a]">
+                    +{collaborators.length - 5}
+                  </div>
+                )}
+              </div>
+              <span className="text-[10px] text-zinc-500 hidden sm:inline">
+                {collaborators.length === 1 ? '1 editor' : `${collaborators.length} editors`}
+              </span>
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-[10px] text-green-400/80 font-semibold">LIVE</span>
+              </div>
+            </div>
+          )}
+
           {/* Status Bar */}
           <div className={cn("flex items-center justify-start pl-4 gap-2 px-3 py-1.5 rounded-full border transition-colors duration-300 backdrop-blur-sm w-[150px]",
             status === 'SUBSCRIBED'
@@ -462,7 +492,8 @@ export default function DocumentEditor({
           {/* Line Numbers */}
           <div
             ref={lineNumbersRef}
-            className="absolute left-0 top-0 bottom-0 z-20 w-12 bg-black/20 border-r border-white/5 text-right font-mono text-xs leading-6 py-4 pr-3 text-zinc-600 select-none overflow-hidden transition-colors hover:text-zinc-500"
+            className="absolute left-0 top-0 bottom-0 w-12 bg-black/20 border-r border-white/5 text-right font-mono text-xs leading-6 py-4 pr-3 text-zinc-600 select-none overflow-hidden transition-colors hover:text-zinc-500"
+            style={{ zIndex: 15 }}
           >
             {Array.from({ length: lineCount }).map((_, i) => (
               <div key={i} className="h-6">{i + 1}</div>
