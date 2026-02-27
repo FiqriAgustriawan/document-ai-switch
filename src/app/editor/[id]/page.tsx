@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, use, useCallback } from 'react'
+import { useState, useEffect, use, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { GalaxyBackground } from "@/components/ui/GalaxyBackground"
 import { SmoothReveal } from "@/components/ui/SmoothReveal"
@@ -12,6 +12,10 @@ import { Loader2, Share2 } from 'lucide-react'
 import { User } from '@supabase/supabase-js'
 import { cn } from '@/lib/utils'
 import { ShareDialog } from '@/components/ShareDialog'
+import { PresenceIndicator } from '@/components/PresenceIndicator'
+import { useCollaboration } from '@/hooks/useCollaboration'
+import { useThrottle } from '@/hooks/useThrottle'
+import { useDebouncedCallback } from '@/hooks/useDebounce'
 import type { DocumentSummary } from '@/lib/documents'
 
 interface DocumentData {
@@ -40,6 +44,37 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   // Share Dialog State
   const [isShareOpen, setIsShareOpen] = useState(false)
 
+  // ── Prevent infinite broadcast loop ────────────────────────────────────
+  const isReceivingRemoteChange = useRef(false)
+
+  // ── Collaboration Hook ─────────────────────────────────────────────────
+  const {
+    collaborators,
+    typingUsers,
+    isConnected,
+    broadcastContentChange,
+    updateCursor,
+  } = useCollaboration({
+    documentId: currentDocId,
+    userId: user?.id ?? '',
+    displayName: user?.email?.split('@')[0] ?? 'Anonymous',
+    onContentChange: (newContent: string) => {
+      // Received content from another user
+      isReceivingRemoteChange.current = true
+      setDocumentContent(newContent)
+      setTimeout(() => { isReceivingRemoteChange.current = false }, 0)
+    },
+  })
+
+  // ── Throttled cursor update (max 10/sec) ───────────────────────────────
+  const throttledUpdateCursor = useThrottle(updateCursor, 100)
+
+  // ── Debounced broadcast (300ms after typing stops) ─────────────────────
+  const debouncedBroadcast = useDebouncedCallback(
+    (content: string) => broadcastContentChange(content),
+    300
+  )
+
   // 1. Check Auth & Load Document
   useEffect(() => {
     async function init() {
@@ -53,7 +88,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
       setUser(session.user)
 
       // Fetch the specific document from URL
-      const { data: doc, error } = await supabase
+      const { data: doc } = await supabase
         .from('documents')
         .select('*')
         .eq('id', id)
@@ -100,7 +135,6 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
 
   // 2. Handle sidebar selecting a different document
   const handleSelectDocument = useCallback((docId: string) => {
-    // Navigate to the new doc URL — this re-mounts the page with the new ID
     router.push(`/editor/${docId}`)
   }, [router])
 
@@ -112,7 +146,6 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   // 4. Handle document deletion from sidebar
   const handleDeleteDocument = useCallback((deletedId: string) => {
     if (deletedId === currentDocId) {
-      // Active doc was deleted — go to dashboard
       router.push('/dashboard')
     }
   }, [currentDocId, router])
@@ -124,15 +157,25 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     }
   }, [currentDocId])
 
-  // 6. Handle content update from editor
+  // 6. Handle content update from editor (local changes only)
   const handleContentUpdate = useCallback((newContent: string) => {
     setDocumentContent(newContent)
-  }, [])
+    // Only broadcast if this is a LOCAL change, not a remote one
+    if (!isReceivingRemoteChange.current) {
+      debouncedBroadcast(newContent)
+    }
+  }, [debouncedBroadcast])
 
   // 7. Handle AI changes
   const handleApplyChanges = useCallback((newContent: string) => {
     setDocumentContent(newContent)
-  }, [])
+    debouncedBroadcast(newContent)
+  }, [debouncedBroadcast])
+
+  // 8. Handle cursor move (throttled)
+  const handleCursorMove = useCallback((line: number, col: number) => {
+    throttledUpdateCursor(line, col)
+  }, [throttledUpdateCursor])
 
   if (isLoading) {
     return (
@@ -174,6 +217,13 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                   </h1>
                 </div>
                 <div className="flex items-center gap-4 text-xs font-mono text-zinc-500">
+                  {/* Presence Indicator */}
+                  <PresenceIndicator
+                    collaborators={collaborators}
+                    isConnected={isConnected}
+                    typingUsers={typingUsers}
+                  />
+
                   {/* Share Button */}
                   <button
                     onClick={() => setIsShareOpen(true)}
@@ -205,6 +255,8 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                     setIsSidebarOpen={setIsSidebarOpen}
                     isMaximized={isMaximized}
                     setIsMaximized={setIsMaximized}
+                    onCursorMove={handleCursorMove}
+                    collaborators={collaborators}
                   />
                 </div>
 

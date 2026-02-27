@@ -6,6 +6,8 @@ import { useAutoSave } from '@/hooks/useAutoSave'
 import { useRealtimeDocument } from '@/hooks/useRealtimeDocument'
 import { useUndoRedo } from '@/hooks/useUndoRedo'
 import { Loader2, Eye, EyeOff, Mic, MicOff } from 'lucide-react'
+import { CursorOverlay } from '@/components/CursorOverlay'
+import type { CollaboratorPresence } from '@/hooks/useCollaboration'
 import Prism from 'prismjs'
 import 'prismjs/components/prism-markdown'
 import 'prismjs/themes/prism-tomorrow.css' // Dark theme
@@ -26,6 +28,8 @@ interface DocumentEditorProps {
   setIsSidebarOpen?: (isOpen: boolean) => void
   isMaximized?: boolean
   setIsMaximized?: (max: boolean) => void
+  onCursorMove?: (line: number, col: number) => void
+  collaborators?: CollaboratorPresence[]
 }
 
 export default function DocumentEditor({
@@ -37,7 +41,9 @@ export default function DocumentEditor({
   isSidebarOpen,
   setIsSidebarOpen,
   isMaximized,
-  setIsMaximized
+  setIsMaximized,
+  onCursorMove,
+  collaborators = []
 }: DocumentEditorProps) {
   // Hooks
   const { state: content, setState: setContent, undo, redo, canUndo, canRedo } = useUndoRedo(initialContent)
@@ -142,11 +148,22 @@ export default function DocumentEditor({
     }
   }
 
+  // Cursor position tracking
+  const handleCursorMove = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    if (!onCursorMove) return
+    const ta = e.currentTarget
+    const selectionStart = ta.selectionStart ?? 0
+    const textBefore = ta.value.substring(0, selectionStart)
+    const lines = textBefore.split('\n')
+    onCursorMove(lines.length, lines[lines.length - 1].length)
+  }
+
   // Handle Text Change
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value
     setContent(newContent)
     onContentUpdate(newContent)
+    handleCursorMove(e)
   }
 
   // Handle Download (Markdown)
@@ -458,11 +475,23 @@ export default function DocumentEditor({
             value={content}
             onChange={handleChange}
             onScroll={handleScroll}
+            onMouseUp={handleCursorMove}
+            onKeyUp={handleCursorMove}
+            onSelect={handleCursorMove}
             className="absolute inset-0 z-10 w-full h-full resize-none !pl-20 pr-4 py-4 font-mono text-sm leading-6 bg-transparent text-transparent caret-cyan-400 outline-none border-none whitespace-pre-wrap break-words overflow-auto no-scrollbar"
             spellCheck={false}
             autoCapitalize="off"
             autoComplete="off"
           />
+
+          {/* Remote Cursor Overlay */}
+          {collaborators.length > 0 && (
+            <CursorOverlay
+              collaborators={collaborators}
+              textareaRef={textareaRef}
+              content={content}
+            />
+          )}
 
           {/* Highlight Layer */}
           <pre
