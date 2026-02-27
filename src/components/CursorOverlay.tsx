@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import type { CollaboratorPresence } from '@/hooks/useCollaboration'
 
 interface CursorOverlayProps {
@@ -12,13 +12,14 @@ interface CursorOverlayProps {
 interface CursorPixelPosition {
   x: number
   y: number
+  lineHeight: number
   collaborator: CollaboratorPresence
 }
 
 export function CursorOverlay({ collaborators, textareaRef, content }: CursorOverlayProps) {
   const [cursorPositions, setCursorPositions] = useState<CursorPixelPosition[]>([])
 
-  useEffect(() => {
+  const calculatePositions = useCallback(() => {
     if (!textareaRef.current) return
 
     const textarea = textareaRef.current
@@ -32,7 +33,7 @@ export function CursorOverlay({ collaborators, textareaRef, content }: CursorOve
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    ctx.font = `${fontSize}px ${style.fontFamily}`
+    ctx.font = `${style.fontWeight} ${fontSize}px ${style.fontFamily}`
     const charWidth = ctx.measureText('M').width
 
     const positions: CursorPixelPosition[] = []
@@ -45,59 +46,75 @@ export function CursorOverlay({ collaborators, textareaRef, content }: CursorOve
       const { line, col } = collaborator.cursor
       if (line < 1 || line > lines.length + 1) continue
 
-      positions.push({
-        x: paddingLeft + col * charWidth - scrollLeft,
-        y: paddingTop + (line - 1) * lineHeight - scrollTop,
-        collaborator,
-      })
+      const x = paddingLeft + col * charWidth - scrollLeft
+      const y = paddingTop + (line - 1) * lineHeight - scrollTop
+
+      // Only show if within visible area
+      if (y < -lineHeight || y > textarea.clientHeight + lineHeight) continue
+
+      positions.push({ x, y, lineHeight, collaborator })
     }
 
     setCursorPositions(positions)
   }, [collaborators, content, textareaRef])
 
-  // Also re-calculate on scroll
+  // Recalculate on collaborators/content change
+  useEffect(() => {
+    calculatePositions()
+  }, [calculatePositions])
+
+  // Recalculate on scroll
   useEffect(() => {
     const textarea = textareaRef.current
     if (!textarea) return
 
-    const handleScroll = () => {
-      // Trigger re-render by toggling a dummy state
-      setCursorPositions((prev) => [...prev])
-    }
-
+    const handleScroll = () => calculatePositions()
     textarea.addEventListener('scroll', handleScroll)
     return () => textarea.removeEventListener('scroll', handleScroll)
-  }, [textareaRef])
+  }, [textareaRef, calculatePositions])
+
+  // Recalculate on window resize
+  useEffect(() => {
+    const handleResize = () => calculatePositions()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [calculatePositions])
 
   if (!textareaRef.current || cursorPositions.length === 0) return null
 
   return (
     <div
       className="absolute inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 10 }}
+      style={{ zIndex: 20 }}
     >
-      {cursorPositions.map(({ x, y, collaborator }) => (
+      {cursorPositions.map(({ x, y, lineHeight: lh, collaborator }) => (
         <div
           key={collaborator.userId}
-          className="absolute flex flex-col items-start transition-all duration-150 ease-out"
+          className="absolute transition-all duration-150 ease-out"
           style={{ left: x, top: y }}
         >
-          {/* Cursor line */}
+          {/* Cursor line — blinking animation */}
           <div
-            className="w-0.5 rounded-full"
+            className="rounded-full animate-pulse"
             style={{
-              height: '1.2em',
+              width: 2,
+              height: lh,
               backgroundColor: collaborator.color,
-              boxShadow: `0 0 4px ${collaborator.color}40`,
+              boxShadow: `0 0 8px ${collaborator.color}80, 0 0 2px ${collaborator.color}`,
             }}
           />
           {/* Name label */}
           <div
-            className="text-white px-1.5 py-0.5 rounded whitespace-nowrap -mt-5 ml-1 shadow-lg"
+            className="absolute whitespace-nowrap rounded-md shadow-xl border border-white/10"
             style={{
               backgroundColor: collaborator.color,
+              color: 'white',
               fontSize: '10px',
-              fontWeight: 600,
+              fontWeight: 700,
+              padding: '1px 6px',
+              top: -18,
+              left: 4,
+              letterSpacing: '0.02em',
             }}
           >
             {collaborator.displayName}

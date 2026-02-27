@@ -55,31 +55,43 @@ export function useCollaboration({
   // ── Broadcast content change ──────────────────────────────────────────────
 
   const broadcastContentChange = useCallback((newContent: string) => {
-    if (!channelRef.current || !isConnected) return
-    channelRef.current.send({
-      type: 'broadcast',
-      event: 'content_change',
-      payload: { content: newContent, userId, timestamp: Date.now() },
-    })
-  }, [userId, isConnected])
+    const ch = channelRef.current
+    if (!ch) return
+    try {
+      ch.send({
+        type: 'broadcast',
+        event: 'content_change',
+        payload: { content: newContent, userId, timestamp: Date.now() },
+      })
+    } catch (err: unknown) {
+      console.error('Broadcast error:', err)
+    }
+  }, [userId])
 
   // ── Update cursor position (via presence track) ───────────────────────────
 
   const updateCursor = useCallback((line: number, col: number) => {
-    if (!channelRef.current || !isConnected) return
-    channelRef.current.track({
-      userId,
-      displayName,
-      color: myColor.current,
-      cursor: { line, col },
-      lastSeen: new Date().toISOString(),
-    })
-  }, [userId, displayName, isConnected])
+    const ch = channelRef.current
+    if (!ch) return
+    try {
+      ch.track({
+        userId,
+        displayName,
+        color: myColor.current,
+        cursor: { line, col },
+        lastSeen: new Date().toISOString(),
+      })
+    } catch (err: unknown) {
+      console.error('Cursor track error:', err)
+    }
+  }, [userId, displayName])
 
   // ── Setup channel ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!documentId || !userId) return
+
+    console.log(`[Collab] Joining channel document:${documentId} as ${displayName} (${userId})`)
 
     const channel = supabase.channel(`document:${documentId}`, {
       config: {
@@ -94,6 +106,8 @@ export function useCollaboration({
       const allUsers = Object.values(state).map((entries) => entries[0])
       const others = allUsers.filter((u) => u.userId !== userId)
 
+      console.log(`[Collab] Presence sync: ${allUsers.length} total, ${others.length} others`)
+
       // Assign stable colors based on join order
       const allSorted = [...allUsers].sort(
         (a, b) => new Date(a.lastSeen).getTime() - new Date(b.lastSeen).getTime()
@@ -104,9 +118,19 @@ export function useCollaboration({
       setCollaborators(others)
     })
 
+    channel.on('presence', { event: 'join' }, ({ newPresences }) => {
+      console.log('[Collab] User joined:', newPresences.map((p) => (p as unknown as CollaboratorPresence).displayName))
+    })
+
+    channel.on('presence', { event: 'leave' }, ({ leftPresences }) => {
+      console.log('[Collab] User left:', leftPresences.map((p) => (p as unknown as CollaboratorPresence).displayName))
+    })
+
     // Broadcast — receive content changes from others
     channel.on('broadcast', { event: 'content_change' }, ({ payload }) => {
       if (payload.userId === userId) return
+
+      console.log(`[Collab] Content change from ${payload.userId}`)
 
       // Track typing users
       setTypingUsers((prev) =>
@@ -126,16 +150,28 @@ export function useCollaboration({
     })
 
     // Subscribe and track presence
-    channel.subscribe(async (status) => {
+    channel.subscribe(async (status, err) => {
+      console.log(`[Collab] Channel status: ${status}`, err || '')
       if (status === 'SUBSCRIBED') {
         setIsConnected(true)
-        await channel.track({
-          userId,
-          displayName,
-          color: myColor.current,
-          cursor: null,
-          lastSeen: new Date().toISOString(),
-        })
+        try {
+          await channel.track({
+            userId,
+            displayName,
+            color: myColor.current,
+            cursor: null,
+            lastSeen: new Date().toISOString(),
+          })
+          console.log('[Collab] Presence tracked successfully')
+        } catch (trackErr: unknown) {
+          console.error('[Collab] Failed to track presence:', trackErr)
+        }
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error('[Collab] Channel error:', err)
+        setIsConnected(false)
+      } else if (status === 'TIMED_OUT') {
+        console.error('[Collab] Channel timed out')
+        setIsConnected(false)
       }
     })
 
@@ -143,7 +179,7 @@ export function useCollaboration({
 
     // Cleanup
     return () => {
-      // Clear all typing timers
+      console.log(`[Collab] Leaving channel document:${documentId}`)
       Object.values(typingTimersRef.current).forEach(clearTimeout)
       typingTimersRef.current = {}
 
