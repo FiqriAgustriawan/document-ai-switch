@@ -43,12 +43,11 @@ export function useAutoSave({ documentId, content, userId }: UseAutoSaveProps) {
       try {
         const { error } = await supabase
           .from('documents')
-          .upsert({ 
-            id: documentId,
-            user_id: userId,
+          .update({ 
             content: contentRef.current,
             updated_at: new Date().toISOString()
-          }, { onConflict: 'id' })
+          })
+          .eq('id', documentId)
 
         if (error) {
           console.error('AutoSave Error:', error.message)

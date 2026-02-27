@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { type Document } from '@/lib/documents'
 import { type Permission } from '@/lib/sharing'
 import { supabase } from '@/lib/supabase'
@@ -9,6 +9,10 @@ import { Eye, Pencil, FileText, Loader2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import DocumentEditor from '@/components/DocumentEditor'
+import { PresenceIndicator } from '@/components/PresenceIndicator'
+import { useCollaboration } from '@/hooks/useCollaboration'
+import { useThrottle } from '@/hooks/useThrottle'
+import { useDebouncedCallback } from '@/hooks/useDebounce'
 
 interface SharedDocumentViewProps {
   document: Document
@@ -23,18 +27,59 @@ export function SharedDocumentView({ document: initialDocument, permission }: Sh
 
   // For edit mode, check if user is logged in
   const [userId, setUserId] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string>('')
   const [authChecked, setAuthChecked] = useState(false)
+
+  // Prevent infinite broadcast loop
+  const isReceivingRemoteChange = useRef(false)
 
   useEffect(() => {
     async function checkAuth() {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         setUserId(session.user.id)
+        setUserEmail(session.user.email || '')
       }
       setAuthChecked(true)
     }
     checkAuth()
   }, [])
+
+  // ── Collaboration Hook ─────────────────────────────────────────────────
+  const {
+    collaborators,
+    typingUsers,
+    isConnected,
+    broadcastContentChange,
+    updateCursor,
+  } = useCollaboration({
+    documentId: initialDocument.id,
+    userId: userId ?? 'anon-viewer',
+    displayName: userEmail ? userEmail.split('@')[0] : 'Viewer',
+    onContentChange: (newContent: string) => {
+      isReceivingRemoteChange.current = true
+      setDocumentContent(newContent)
+      setTimeout(() => { isReceivingRemoteChange.current = false }, 0)
+    },
+  })
+
+  // ── Throttled cursor + Debounced broadcast ─────────────────────────────
+  const throttledUpdateCursor = useThrottle(updateCursor, 100)
+  const debouncedBroadcast = useDebouncedCallback(
+    (content: string) => broadcastContentChange(content),
+    300
+  )
+
+  const handleContentUpdate = useCallback((newContent: string) => {
+    setDocumentContent(newContent)
+    if (!isReceivingRemoteChange.current) {
+      debouncedBroadcast(newContent)
+    }
+  }, [debouncedBroadcast])
+
+  const handleCursorMove = useCallback((line: number, col: number) => {
+    throttledUpdateCursor(line, col)
+  }, [throttledUpdateCursor])
 
   // Edit mode requires login
   if (!isViewOnly && authChecked && !userId) {
@@ -89,20 +134,29 @@ export function SharedDocumentView({ document: initialDocument, permission }: Sh
           </span>
         </div>
 
-        {isViewOnly && (
-          <button
-            onClick={() => setShowMarkdown(!showMarkdown)}
-            className="text-xs px-3 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
-          >
-            {showMarkdown ? 'Raw Text' : 'Markdown'}
-          </button>
-        )}
+        <div className="flex items-center gap-4">
+          {/* Presence Indicator */}
+          <PresenceIndicator
+            collaborators={collaborators}
+            isConnected={isConnected}
+            typingUsers={typingUsers}
+          />
+
+          {isViewOnly && (
+            <button
+              onClick={() => setShowMarkdown(!showMarkdown)}
+              className="text-xs px-3 py-1 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
+            >
+              {showMarkdown ? 'Raw Text' : 'Markdown'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {isViewOnly ? (
-          // View-only mode
+          // View-only mode — live content updates via broadcast
           <div className="h-full overflow-y-auto">
             {showMarkdown ? (
               <div className="max-w-4xl mx-auto p-8 prose prose-invert prose-sm">
@@ -128,15 +182,17 @@ export function SharedDocumentView({ document: initialDocument, permission }: Sh
             )}
           </div>
         ) : (
-          // Edit mode (user is logged in)
+          // Edit mode (user is logged in) — full collaboration
           userId && (
             <DocumentEditor
               key={initialDocument.id}
               initialContent={documentContent}
               documentId={initialDocument.id}
               userId={userId}
-              onContentUpdate={setDocumentContent}
+              onContentUpdate={handleContentUpdate}
               externalContent={documentContent}
+              onCursorMove={handleCursorMove}
+              collaborators={collaborators}
             />
           )
         )}
