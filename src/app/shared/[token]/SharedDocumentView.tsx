@@ -52,6 +52,7 @@ export function SharedDocumentView({ document: initialDocument, permission }: Sh
     isConnected,
     broadcastContentChange,
     updateCursor,
+    updateTypingCursor,
   } = useCollaboration({
     documentId: initialDocument.id,
     userId: userId ?? 'anon-viewer',
@@ -80,6 +81,12 @@ export function SharedDocumentView({ document: initialDocument, permission }: Sh
   const handleCursorMove = useCallback((x: number, y: number) => {
     throttledUpdateCursor(x, y)
   }, [throttledUpdateCursor])
+
+  // Typing cursor (throttled)
+  const throttledUpdateTypingCursor = useThrottle(updateTypingCursor, 100)
+  const handleTypingCursorMove = useCallback((line: number, col: number) => {
+    throttledUpdateTypingCursor(line, col)
+  }, [throttledUpdateTypingCursor])
 
   // Edit mode requires login
   if (!isViewOnly && authChecked && !userId) {
@@ -192,6 +199,7 @@ export function SharedDocumentView({ document: initialDocument, permission }: Sh
               onContentUpdate={handleContentUpdate}
               externalContent={documentContent}
               onCursorMove={handleCursorMove}
+              onTypingCursorMove={handleTypingCursorMove}
               collaborators={collaborators}
             />
           )
