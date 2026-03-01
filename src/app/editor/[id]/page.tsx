@@ -8,7 +8,7 @@ import DocumentEditor from "@/components/DocumentEditor"
 import AIChat from "@/components/AIChat"
 import { DocumentSidebar } from "@/components/DocumentSidebar"
 import { supabase } from '@/lib/supabase'
-import { Loader2, Share2 } from 'lucide-react'
+import { Loader2, Share2, History, Save } from 'lucide-react'
 import { User } from '@supabase/supabase-js'
 import { cn } from '@/lib/utils'
 import { ShareDialog } from '@/components/ShareDialog'
@@ -16,6 +16,9 @@ import { PresenceIndicator } from '@/components/PresenceIndicator'
 import { useCollaboration } from '@/hooks/useCollaboration'
 import { useThrottle } from '@/hooks/useThrottle'
 import { useDebouncedCallback } from '@/hooks/useDebounce'
+import { useAutoSnapshot } from '@/hooks/useAutoSnapshot'
+import { VersionTimeline } from '@/components/VersionTimeline'
+import { DiffModal } from '@/components/DiffModal'
 import type { DocumentSummary } from '@/lib/documents'
 
 interface DocumentData {
@@ -43,6 +46,10 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
 
   // Share Dialog State
   const [isShareOpen, setIsShareOpen] = useState(false)
+
+  // Version History State
+  const [showHistory, setShowHistory] = useState(false)
+  const [compareVersions, setCompareVersions] = useState<{ a: string; b: string } | null>(null)
 
   // ── Prevent infinite broadcast loop ────────────────────────────────────
   const isReceivingRemoteChange = useRef(false)
@@ -184,6 +191,24 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     throttledUpdateTypingCursor(line, col)
   }, [throttledUpdateTypingCursor])
 
+  // 10. Auto-snapshot hook (every 30s)
+  const { saveNamedVersion } = useAutoSnapshot({
+    documentId: currentDocId,
+    content: documentContent,
+    userId: user?.id ?? '',
+  })
+
+  // 11. Handle manual version save
+  const handleSaveVersion = useCallback(async () => {
+    const label = prompt('Version label (optional):')
+    if (label === null) return // cancelled
+    try {
+      await saveNamedVersion(label || '')
+    } catch (err) {
+      console.error('Save version failed:', err)
+    }
+  }, [saveNamedVersion])
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black text-white">
@@ -223,7 +248,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                     {currentTitle}
                   </h1>
                 </div>
-                <div className="flex items-center gap-4 text-xs font-mono text-zinc-500">
+                <div className="flex items-center gap-3 text-xs font-mono text-zinc-500">
                   {/* Presence Indicator */}
                   <PresenceIndicator
                     collaborators={collaborators}
@@ -231,10 +256,35 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                     typingUsers={typingUsers}
                   />
 
+                  {/* Save Version Button */}
+                  <button
+                    onClick={handleSaveVersion}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/10 text-zinc-400 hover:text-emerald-400 transition-all"
+                    title="Save named version"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Save</span>
+                  </button>
+
+                  {/* History Button */}
+                  <button
+                    onClick={() => setShowHistory(!showHistory)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all",
+                      showHistory
+                        ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-400"
+                        : "border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/10 text-zinc-400 hover:text-cyan-400"
+                    )}
+                    title="Version history"
+                  >
+                    <History className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">History</span>
+                  </button>
+
                   {/* Share Button */}
                   <button
                     onClick={() => setIsShareOpen(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/10 text-zinc-400 hover:text-cyan-400 transition-all"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/10 text-zinc-400 hover:text-cyan-400 transition-all"
                   >
                     <Share2 className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Share</span>
@@ -275,6 +325,26 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                     onApplyChanges={handleApplyChanges}
                   />
                 </div>
+
+                {/* Version History Panel */}
+                <div className={cn(
+                  "transition-all duration-300 ease-in-out border-l border-white/5 overflow-hidden",
+                  showHistory ? "w-[280px] flex-shrink-0" : "w-0"
+                )}>
+                  {showHistory && (
+                    <VersionTimeline
+                      documentId={currentDocId}
+                      userId={user.id}
+                      onCompare={(a, b) => {
+                        setCompareVersions({ a, b })
+                      }}
+                      onContentRestore={(newContent) => {
+                        setDocumentContent(newContent)
+                      }}
+                      onClose={() => setShowHistory(false)}
+                    />
+                  )}
+                </div>
               </div>
             </SmoothReveal>
           </div>
@@ -287,6 +357,15 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
           documentId={currentDocId}
           ownerId={user.id}
           onClose={() => setIsShareOpen(false)}
+        />
+      )}
+
+      {/* Diff Modal */}
+      {compareVersions && (
+        <DiffModal
+          versionIdA={compareVersions.a}
+          versionIdB={compareVersions.b}
+          onClose={() => setCompareVersions(null)}
         />
       )}
     </div>

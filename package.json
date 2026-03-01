@@ -16,6 +16,7 @@
     "@types/marked": "^5.0.2",
     "@types/uuid": "^10.0.0",
     "clsx": "^2.1.1",
+    "diff": "^8.0.3",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.34.2",
     "html-docx-js-typescript": "^0.1.5",
@@ -35,6 +36,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@tailwindcss/typography": "^0.5.19",
+    "@types/diff": "^7.0.2",
     "@types/dom-speech-recognition": "^0.0.7",
     "@types/node": "^20",
     "@types/prismjs": "^1.26.6",
